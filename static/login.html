@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Smart Kerala Volt Metering</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div>
+          <h1>Login</h1>
+          <p>Control devices securely with JWT authentication.</p>
+        </div>
+        <a class="button ghost" href="/">Back to Dashboard</a>
+      </header>
+
+      <section class="panel login-panel">
+        <form id="loginForm" class="form">
+          <label>
+            Username
+            <input type="text" name="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" required />
+          </label>
+          <button class="button" type="submit">Login</button>
+          <p id="loginMessage" class="message"></p>
+          <p class="hint">Default admin: <strong>admin</strong> / <strong>admin123</strong></p>
+        </form>
+      </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

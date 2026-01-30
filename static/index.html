@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Smart Kerala Volt Metering</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div>
+          <h1>Smart Kerala Volt Metering</h1>
+          <p>Monitor IoT voltage and current meters in one place.</p>
+        </div>
+        <div class="header-actions">
+          <a class="button ghost" href="/login" id="loginLink">Login</a>
+          <button class="button secondary" id="logoutBtn">Logout</button>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Registered Devices</h2>
+          <span class="badge" id="authBadge">Guest</span>
+        </div>
+        <div id="deviceList" class="device-grid"></div>
+      </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
