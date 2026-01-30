@@ -4,16 +4,21 @@ import (
     "net/http"
     "strconv"
 
+    "github.com/aruncs31s/skvms/internal/dto"
     "github.com/aruncs31s/skvms/internal/service"
     "github.com/gin-gonic/gin"
 )
 
 type DeviceHandler struct {
     deviceService service.DeviceService
+    auditService  service.AuditService
 }
 
-func NewDeviceHandler(deviceService service.DeviceService) *DeviceHandler {
-    return &DeviceHandler{deviceService: deviceService}
+func NewDeviceHandler(deviceService service.DeviceService, auditService service.AuditService) *DeviceHandler {
+    return &DeviceHandler{
+        deviceService: deviceService,
+        auditService:  auditService,
+    }
 }
 
 func (h *DeviceHandler) ListDevices(c *gin.Context) {
@@ -70,5 +75,80 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
         return
     }
 
+    // Audit log
+    userID, _ := c.Get("user_id")
+    username, _ := c.Get("username")
+    _ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_control", 
+        message, c.ClientIP())
+
     c.JSON(http.StatusOK, gin.H{"message": message})
+}
+
+func (h *DeviceHandler) CreateDevice(c *gin.Context) {
+    var req dto.CreateDeviceRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    if err := h.deviceService.CreateDevice(c.Request.Context(), &req); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create device"})
+        return
+    }
+
+    // Audit log
+    userID, _ := c.Get("user_id")
+    username, _ := c.Get("username")
+    _ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_create", 
+        "Created device: " + req.Name, c.ClientIP())
+
+    c.JSON(http.StatusCreated, gin.H{"message": "device created successfully"})
+}
+
+func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
+    id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+        return
+    }
+
+    var req dto.UpdateDeviceRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+
+    if err := h.deviceService.UpdateDevice(c.Request.Context(), uint(id), &req); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update device"})
+        return
+    }
+
+    // Audit log
+    userID, _ := c.Get("user_id")
+    username, _ := c.Get("username")
+    _ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_update", 
+        "Updated device ID: " + strconv.FormatUint(id, 10), c.ClientIP())
+
+    c.JSON(http.StatusOK, gin.H{"message": "device updated successfully"})
+}
+
+func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
+    id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+        return
+    }
+
+    if err := h.deviceService.DeleteDevice(c.Request.Context(), uint(id)); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete device"})
+        return
+    }
+
+    // Audit log
+    userID, _ := c.Get("user_id")
+    username, _ := c.Get("username")
+    _ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_delete", 
+        "Deleted device ID: " + strconv.FormatUint(id, 10), c.ClientIP())
+
+    c.JSON(http.StatusOK, gin.H{"message": "device deleted successfully"})
 }

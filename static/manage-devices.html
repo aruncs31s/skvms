@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Devices - Smart Kerala Volt Metering</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+    <div class="container">
+      <header class="header">
+        <div>
+          <h1>Manage Devices</h1>
+          <p>Add, edit, and delete IoT devices</p>
+        </div>
+        <button class="button" id="addDeviceBtn">Add New Device</button>
+      </header>
+
+      <section class="panel">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>IP Address</th>
+                <th>MAC Address</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="devicesTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="deviceModal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Add Device</h2>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+        <form id="deviceForm" class="form">
+          <input type="hidden" id="deviceId" />
+          <label>
+            Name
+            <input type="text" id="deviceName" required />
+          </label>
+          <label>
+            Type
+            <select id="deviceType" required>
+              <option value="">Select device type</option>
+            </select>
+          </label>
+          <label>
+            IP Address
+            <input type="text" id="deviceIP" />
+          </label>
+          <label>
+            MAC Address
+            <input type="text" id="deviceMAC" />
+          </label>
+          <label>
+            Firmware Version
+            <input type="text" id="deviceFirmware" />
+          </label>
+          <label>
+            Address
+            <input type="text" id="deviceAddress" />
+          </label>
+          <label>
+            City
+            <input type="text" id="deviceCity" />
+          </label>
+          <button class="button" type="submit">Save</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

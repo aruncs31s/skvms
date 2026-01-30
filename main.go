@@ -27,14 +27,22 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	deviceRepo := repository.NewDeviceRepository(db)
 	readingRepo := repository.NewReadingRepository(db)
+	auditRepo := repository.NewAuditRepository(db)
+	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	deviceService := service.NewDeviceService(deviceRepo)
 	readingService := service.NewReadingService(readingRepo)
+	auditService := service.NewAuditService(auditRepo)
+	userService := service.NewUserService(userRepo)
+	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 
-	authHandler := httpHandler.NewAuthHandler(authService)
-	deviceHandler := httpHandler.NewDeviceHandler(deviceService)
+	authHandler := httpHandler.NewAuthHandler(authService, auditService)
+	deviceHandler := httpHandler.NewDeviceHandler(deviceService, auditService)
 	readingHandler := httpHandler.NewReadingHandler(readingService)
+	auditHandler := httpHandler.NewAuditHandler(auditService)
+	userHandler := httpHandler.NewUserHandler(userService, auditService)
+	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
 
 	router := gin.Default()
 
@@ -51,6 +59,15 @@ func main() {
 	router.GET("/all-readings", func(c *gin.Context) {
 		c.File("./static/all-readings.html")
 	})
+	router.GET("/manage-devices", func(c *gin.Context) {
+		c.File("./static/manage-devices.html")
+	})
+	router.GET("/manage-users", func(c *gin.Context) {
+		c.File("./static/manage-users.html")
+	})
+	router.GET("/audit", func(c *gin.Context) {
+		c.File("./static/audit.html")
+	})
 
 	api := router.Group("/api")
 	{
@@ -60,6 +77,15 @@ func main() {
 		api.GET("/devices/:id/readings", readingHandler.ListByDevice)
 		api.GET("/devices/:id/readings/range", readingHandler.ListByDateRange)
 		api.POST("/devices/:id/control", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.ControlDevice)
+		api.POST("/devices", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.CreateDevice)
+		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.UpdateDevice)
+		api.DELETE("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.DeleteDevice)
+		api.GET("/device-types", deviceTypesHandler.ListDeviceTypes)
+		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
+		api.POST("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.CreateUser)
+		api.PUT("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.UpdateUser)
+		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)
+		api.GET("/audit", middleware.JWTAuth(cfg.JWTSecret), auditHandler.ListAuditLogs)
 	}
 
 	serverAddr := fmt.Sprintf(":%s", cfg.ServerPort)

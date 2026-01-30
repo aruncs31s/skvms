@@ -9,6 +9,10 @@ import (
 )
 
 func Seed(db *gorm.DB) error {
+	if err := seedDeviceTypes(db); err != nil {
+		return err
+	}
+
 	if err := seedAdminUser(db); err != nil {
 		return err
 	}
@@ -19,6 +23,30 @@ func Seed(db *gorm.DB) error {
 
 	if err := seedReadings(db); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func seedDeviceTypes(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&model.DeviceTypes{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	deviceTypes := []model.DeviceTypes{
+		{Name: "volt-current-meter"},
+		{Name: "smart-switch"},
+		{Name: "sensor-node"},
+	}
+
+	for _, dt := range deviceTypes {
+		if err := db.Create(&dt).Error; err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -56,10 +84,16 @@ func seedDevices(db *gorm.DB) error {
 		return nil
 	}
 
+	// Get the volt-current-meter device type ID
+	var deviceType model.DeviceTypes
+	if err := db.Where("type_name = ?", "volt-current-meter").First(&deviceType).Error; err != nil {
+		return err
+	}
+
 	devices := []model.Device{
-		{Name: "Main Panel Meter", Type: "volt-current-meter", CreatedBy: 1, UpdatedBy: 1},
-		{Name: "Workshop Feeder", Type: "volt-current-meter", CreatedBy: 1, UpdatedBy: 1},
-		{Name: "Solar Inverter Line", Type: "volt-current-meter", CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Main Panel Meter", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Workshop Feeder", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Solar Inverter Line", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
 	}
 
 	macs := []string{"AA:BB:CC:DD:EE:FF", "BB:CC:DD:EE:FF:AA", "CC:DD:EE:FF:AA:BB"}

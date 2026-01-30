@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Users - Smart Kerala Volt Metering</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div id="navbar-container"></div>
+    <div class="container">
+      <header class="header">
+        <div>
+          <h1>Manage Users</h1>
+          <p>Manage system users and permissions</p>
+        </div>
+        <button class="button" id="addUserBtn">Add New User</button>
+      </header>
+
+      <section class="panel">
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div id="userModal" class="modal" style="display:none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="modalTitle">Add User</h2>
+          <button class="modal-close" id="closeModal">&times;</button>
+        </div>
+        <form id="userForm" class="form">
+          <input type="hidden" id="userId" />
+          <label>
+            Name
+            <input type="text" id="userName" required />
+          </label>
+          <label>
+            Username
+            <input type="text" id="userUsername" required />
+          </label>
+          <label>
+            Email
+            <input type="email" id="userEmail" required />
+          </label>
+          <label>
+            Password
+            <input type="password" id="userPassword" />
+            <span class="hint">Leave blank to keep existing password</span>
+          </label>
+          <button class="button" type="submit">Save</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

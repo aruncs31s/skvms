@@ -5,14 +5,14 @@ import "time"
 type Device struct {
 	ID        uint   `gorm:"column:id;primaryKey;autoIncrement"`
 	Name      string `gorm:"column:name"`
-	Type      string `gorm:"column:device_type"`
+	Type      uint   `gorm:"column:device_type"`
 	CreatedBy uint   `gorm:"column:created_by"`
 	UpdatedBy uint   `gorm:"column:updated_by"`
-
 	// 1= Active, 0 = Inactive
-	State     int             `gorm:"column:state"`
-	Details   DeviceDetails   `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Addresses []DeviceAddress `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	State      int             `gorm:"column:state"`
+	Details    DeviceDetails   `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Addresses  []DeviceAddress `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	DeviceType DeviceTypes     `gorm:"foreignKey:Type;references:ID"`
 }
 
 type DeviceDetails struct {

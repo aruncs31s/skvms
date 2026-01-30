@@ -12,24 +12,67 @@ const getUser = () => {
 const setUser = (user) => localStorage.setItem(userKey, JSON.stringify(user));
 const clearUser = () => localStorage.removeItem(userKey);
 
+// Load navbar
+(async () => {
+  const container = document.getElementById("navbar-container");
+  if (container) {
+    const res = await fetch("/static/navbar.html");
+    const html = await res.text();
+    container.innerHTML = html;
+    initNavbar();
+  }
+})();
+
+function initNavbar() {
+  const navAuthBadge = document.getElementById("navAuthBadge");
+  const navLogoutBtn = document.getElementById("navLogoutBtn");
+  const navLoginLink = document.getElementById("navLoginLink");
+  const navManageDevices = document.getElementById("navManageDevices");
+  const navManageUsers = document.getElementById("navManageUsers");
+  const navAudit = document.getElementById("navAudit");
+
+  if (navLogoutBtn) {
+    navLogoutBtn.addEventListener("click", () => {
+      clearToken();
+      clearUser();
+      window.location.href = "/";
+    });
+  }
+
+  updateAuthUI();
+
+  function updateAuthUI() {
+    const user = getUser();
+    const displayText = user ? `Welcome, ${user.name}` : "Guest";
+    
+    if (navAuthBadge) navAuthBadge.textContent = displayText;
+    if (navLoginLink) navLoginLink.style.display = user ? "none" : "inline-block";
+    if (navLogoutBtn) navLogoutBtn.style.display = user ? "inline-block" : "none";
+    
+    // Show admin links only when logged in
+    if (navManageDevices) navManageDevices.style.display = user ? "inline-block" : "none";
+    if (navManageUsers) navManageUsers.style.display = user ? "inline-block" : "none";
+    if (navAudit) navAudit.style.display = user ? "inline-block" : "none";
+
+    // Mark active page
+    const path = window.location.pathname;
+    document.querySelectorAll(".navbar-item").forEach((item) => {
+      const href = item.getAttribute("href");
+      if (href && (href === path || (href !== "/" && path.startsWith(href)))) {
+        item.classList.add("active");
+      }
+    });
+  }
+}
+
+
+
 const authBadge = document.getElementById("authBadge");
 const logoutBtn = document.getElementById("logoutBtn");
 const loginLink = document.getElementById("loginLink");
 
-const navAuthBadge = document.getElementById("navAuthBadge");
-const navLogoutBtn = document.getElementById("navLogoutBtn");
-const navLoginLink = document.getElementById("navLoginLink");
-
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
-    clearToken();
-    clearUser();
-    window.location.reload();
-  });
-}
-
-if (navLogoutBtn) {
-  navLogoutBtn.addEventListener("click", () => {
     clearToken();
     clearUser();
     window.location.reload();
@@ -43,20 +86,11 @@ const updateAuthUI = () => {
   if (authBadge) {
     authBadge.textContent = displayText;
   }
-  if (navAuthBadge) {
-    navAuthBadge.textContent = displayText;
-  }
   if (loginLink) {
     loginLink.style.display = user ? "none" : "inline-block";
   }
-  if (navLoginLink) {
-    navLoginLink.style.display = user ? "none" : "inline-block";
-  }
   if (logoutBtn) {
     logoutBtn.style.display = user ? "inline-block" : "none";
-  }
-  if (navLogoutBtn) {
-    navLogoutBtn.style.display = user ? "inline-block" : "none";
   }
 };
 
@@ -120,6 +154,21 @@ if (deviceId) {
 const allReadingsPage = window.location.pathname === "/all-readings";
 if (allReadingsPage) {
   loadAllReadingsPage();
+}
+
+const manageDevicesPage = window.location.pathname === "/manage-devices";
+if (manageDevicesPage) {
+  loadManageDevicesPage();
+}
+
+const manageUsersPage = window.location.pathname === "/manage-users";
+if (manageUsersPage) {
+  loadManageUsersPage();
+}
+
+const auditPage = window.location.pathname === "/audit";
+if (auditPage) {
+  loadAuditPage();
 }
 
 async function loadDevices() {
@@ -639,6 +688,402 @@ async function loadAllReadingsPage() {
   if (exportAllCsvBtn) exportAllCsvBtn.addEventListener("click", exportAllCSV);
 
   await renderAllDevices();
+}
+
+async function loadManageDevicesPage() {
+  const devicesTableBody = document.getElementById("devicesTableBody");
+  const addDeviceBtn = document.getElementById("addDeviceBtn");
+  const deviceModal = document.getElementById("deviceModal");
+  const closeModal = document.getElementById("closeModal");
+  const deviceForm = document.getElementById("deviceForm");
+
+  let currentDeviceId = null;
+  let deviceTypes = [];
+
+  const fetchDeviceTypes = async () => {
+    const res = await fetch("/api/device-types");
+    const data = await res.json();
+    return data || [];
+  };
+
+  const populateDeviceTypeDropdown = () => {
+    const select = document.getElementById("deviceType");
+    select.innerHTML = '<option value="">Select device type</option>';
+    deviceTypes.forEach(type => {
+      const option = document.createElement("option");
+      option.value = type.id;
+      option.textContent = type.name;
+      select.appendChild(option);
+    });
+  };
+
+  const fetchDevices = async () => {
+    const res = await fetch("/api/devices");
+    const data = await res.json();
+    return data.devices || [];
+  };
+
+  const renderDevices = async () => {
+    const devices = await fetchDevices();
+    devicesTableBody.innerHTML = devices
+      .map(
+        (d) => `
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.name}</td>
+        <td>${d.type}</td>
+        <td>${d.ip_address || "-"}</td>
+        <td>${d.mac_address || "-"}</td>
+        <td>
+          <button class="button ghost" data-edit="${d.id}" data-device='${JSON.stringify(d)}'>Edit</button>
+          <button class="button ghost" data-delete="${d.id}">Delete</button>
+        </td>
+      </tr>
+    `
+      )
+      .join("");
+
+    devicesTableBody.querySelectorAll("[data-edit]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const device = JSON.parse(btn.getAttribute("data-device"));
+        openEditModal(device);
+      });
+    });
+    devicesTableBody.querySelectorAll("[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => deleteDevice(btn.getAttribute("data-delete")));
+    });
+  };
+
+  const openEditModal = (device) => {
+    if (device) {
+      document.getElementById("modalTitle").textContent = "Edit Device";
+      currentDeviceId = device.id;
+      document.getElementById("deviceName").value = device.name;
+      // Find the device type ID by name
+      const typeOption = deviceTypes.find(t => t.name === device.type);
+      document.getElementById("deviceType").value = typeOption ? typeOption.id : "";
+      document.getElementById("deviceIP").value = device.ip_address || "";
+      document.getElementById("deviceMAC").value = device.mac_address || "";
+      document.getElementById("deviceFirmware").value = device.firmware_version || "";
+      document.getElementById("deviceAddress").value = device.address || "";
+      document.getElementById("deviceCity").value = device.city || "";
+    } else {
+      document.getElementById("modalTitle").textContent = "Add Device";
+      currentDeviceId = null;
+      deviceForm.reset();
+    }
+    deviceModal.style.display = "flex";
+  };
+
+  addDeviceBtn.addEventListener("click", () => openEditModal(null));
+  closeModal.addEventListener("click", () => (deviceModal.style.display = "none"));
+
+  deviceForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) {
+      alert("Please login first");
+      return;
+    }
+
+    const payload = {
+      name: document.getElementById("deviceName").value,
+      type: parseInt(document.getElementById("deviceType").value),
+      ip_address: document.getElementById("deviceIP").value,
+      mac_address: document.getElementById("deviceMAC").value,
+      firmware_version: document.getElementById("deviceFirmware").value,
+      address: document.getElementById("deviceAddress").value,
+      city: document.getElementById("deviceCity").value,
+    };
+
+    try {
+      const url = currentDeviceId ? `/api/devices/${currentDeviceId}` : "/api/devices";
+      const method = currentDeviceId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to save device");
+        return;
+      }
+
+      alert(data.message);
+      deviceModal.style.display = "none";
+      await renderDevices();
+    } catch (error) {
+      alert("Failed to save device");
+    }
+  });
+
+  const deleteDevice = async (id) => {
+    if (!confirm("Delete this device?")) return;
+    const token = getToken();
+    if (!token) {
+      alert("Please login first");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/devices/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete device");
+        return;
+      }
+
+      alert(data.message);
+      await renderDevices();
+    } catch (error) {
+      alert("Failed to delete device");
+    }
+  };
+
+  // Load device types and then render
+  try {
+    deviceTypes = await fetchDeviceTypes();
+    populateDeviceTypeDropdown();
+    await renderDevices();
+  } catch (error) {
+    console.error("Failed to load device types:", error);
+    await renderDevices();
+  }
+}
+
+async function loadManageUsersPage() {
+  const usersTableBody = document.getElementById("usersTableBody");
+  const addUserBtn = document.getElementById("addUserBtn");
+  const userModal = document.getElementById("userModal");
+  const closeModal = document.getElementById("closeModal");
+  const userForm = document.getElementById("userForm");
+
+  let currentUserId = null;
+
+  const fetchUsers = async () => {
+    const token = getToken();
+    const res = await fetch("/api/users", {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json();
+    return data.users || [];
+  };
+
+  const renderUsers = async () => {
+    try {
+      const users = await fetchUsers();
+      usersTableBody.innerHTML = users
+        .map(
+          (u) => `
+        <tr>
+          <td>${u.id}</td>
+          <td>${u.username}</td>
+          <td>${u.email}</td>
+          <td>${u.role}</td>
+          <td>
+            <button class="button ghost" data-edit="${u.id}" data-user='${JSON.stringify(u)}'>Edit</button>
+            <button class="button ghost" data-delete="${u.id}">Delete</button>
+          </td>
+        </tr>
+      `
+        )
+        .join("");
+
+      usersTableBody.querySelectorAll("[data-edit]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const user = JSON.parse(btn.getAttribute("data-user"));
+          openEditModal(user);
+        });
+      });
+      usersTableBody.querySelectorAll("[data-delete]").forEach((btn) => {
+        btn.addEventListener("click", () => deleteUser(btn.getAttribute("data-delete")));
+      });
+    } catch (error) {
+      usersTableBody.innerHTML = `<tr><td colspan="5" class="muted">Failed to load users. Please login.</td></tr>`;
+    }
+  };
+
+  const openEditModal = (user) => {
+    if (user) {
+      document.getElementById("modalTitle").textContent = "Edit User";
+      currentUserId = user.id;
+      document.getElementById("username").value = user.username;
+      document.getElementById("email").value = user.email;
+      document.getElementById("password").value = "";
+      document.getElementById("password").placeholder = "Leave blank to keep current password";
+      document.getElementById("role").value = user.role;
+    } else {
+      document.getElementById("modalTitle").textContent = "Add User";
+      currentUserId = null;
+      userForm.reset();
+      document.getElementById("password").placeholder = "Password";
+    }
+    userModal.style.display = "flex";
+  };
+
+  addUserBtn.addEventListener("click", () => openEditModal(null));
+  closeModal.addEventListener("click", () => (userModal.style.display = "none"));
+
+  userForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) {
+      alert("Please login first");
+      return;
+    }
+
+    const payload = {
+      username: document.getElementById("username").value,
+      email: document.getElementById("email").value,
+      password: document.getElementById("password").value,
+      role: document.getElementById("role").value,
+    };
+
+    // For update, password is optional
+    if (currentUserId && !payload.password) {
+      delete payload.password;
+    }
+
+    try {
+      const url = currentUserId ? `/api/users/${currentUserId}` : "/api/users";
+      const method = currentUserId ? "PUT" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to save user");
+        return;
+      }
+
+      alert(data.message);
+      userModal.style.display = "none";
+      await renderUsers();
+    } catch (error) {
+      alert("Failed to save user");
+    }
+  });
+
+  const deleteUser = async (id) => {
+    if (!confirm("Delete this user?")) return;
+    const token = getToken();
+    if (!token) {
+      alert("Please login first");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Failed to delete user");
+        return;
+      }
+
+      alert(data.message);
+      await renderUsers();
+    } catch (error) {
+      alert("Failed to delete user");
+    }
+  };
+
+  await renderUsers();
+}
+
+
+async function loadAuditPage() {
+  const auditTableBody = document.getElementById("auditTableBody");
+  const auditEmpty = document.getElementById("auditEmpty");
+  const actionFilter = document.getElementById("actionFilter");
+  const refreshAuditBtn = document.getElementById("refreshAuditBtn");
+  const exportAuditBtn = document.getElementById("exportAuditBtn");
+
+  const fetchAuditLogs = async (action = "") => {
+    const url = action ? `/api/audit?action=${action}` : "/api/audit";
+    const res = await fetch(url);
+    const data = await res.json();
+    return data.logs || [];
+  };
+
+  const renderAuditLogs = async () => {
+    try {
+      const action = actionFilter ? actionFilter.value : "";
+      const logs = await fetchAuditLogs(action);
+
+      if (!logs.length) {
+        auditTableBody.innerHTML = "";
+        auditEmpty.style.display = "block";
+        return;
+      }
+
+      auditEmpty.style.display = "none";
+      auditTableBody.innerHTML = logs
+        .map(
+          (log) => `
+        <tr>
+          <td>${new Date(log.created_at).toLocaleString()}</td>
+          <td>${log.username}</td>
+          <td><span class="chip">${log.action}</span></td>
+          <td>${log.details}</td>
+          <td>${log.ip_address}</td>
+        </tr>
+      `
+        )
+        .join("");
+    } catch (error) {
+      auditTableBody.innerHTML = `<tr><td colspan="5" class="muted">Failed to load audit logs</td></tr>`;
+    }
+  };
+
+  const exportAuditCSV = async () => {
+    try {
+      const logs = await fetchAuditLogs(actionFilter ? actionFilter.value : "");
+      let csv = "Time,User,Action,Details,IP Address\n";
+      logs.forEach((log) => {
+        const time = new Date(log.created_at).toLocaleString();
+        csv += `"${time}","${log.username}","${log.action}","${log.details}","${log.ip_address}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "audit-log.csv";
+      link.click();
+    } catch (error) {
+      alert("Export failed");
+    }
+  };
+
+  if (actionFilter) actionFilter.addEventListener("change", renderAuditLogs);
+  if (refreshAuditBtn) refreshAuditBtn.addEventListener("click", renderAuditLogs);
+  if (exportAuditBtn) exportAuditBtn.addEventListener("click", exportAuditCSV);
+
+  await renderAuditLogs();
 }
 
 async function sendControlCommand(id) {
