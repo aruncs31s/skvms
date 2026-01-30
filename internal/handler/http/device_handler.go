@@ -5,8 +5,10 @@ import (
     "strconv"
 
     "github.com/aruncs31s/skvms/internal/dto"
+    "github.com/aruncs31s/skvms/internal/logger"
     "github.com/aruncs31s/skvms/internal/service"
     "github.com/gin-gonic/gin"
+    "go.uber.org/zap"
 )
 
 type DeviceHandler struct {
@@ -24,10 +26,17 @@ func NewDeviceHandler(deviceService service.DeviceService, auditService service.
 func (h *DeviceHandler) ListDevices(c *gin.Context) {
     devices, err := h.deviceService.ListDevices(c.Request.Context())
     if err != nil {
+        logger.Error("Failed to list devices",
+            zap.Error(err),
+            zap.String("ip", c.ClientIP()),
+        )
         c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load devices"})
         return
     }
 
+    logger.Debug("Devices listed successfully",
+        zap.Int("count", len(devices)),
+    )
     c.JSON(http.StatusOK, gin.H{"devices": devices})
 }
 

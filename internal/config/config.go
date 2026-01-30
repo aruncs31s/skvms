@@ -14,6 +14,8 @@ type Config struct {
 	DBName     string
 	JWTSecret  string
 	ServerPort string
+	LogDir     string
+	LogLevel   string
 }
 
 func Load() Config {
@@ -27,6 +29,8 @@ func Load() Config {
 		DBName:     getEnv("DB_NAME", "skvms"),
 		JWTSecret:  getEnv("JWT_SECRET", "change-me"),
 		ServerPort: getEnv("PORT", "8080"),
+		LogDir:     getEnv("LOG_DIR", "./logs"),
+		LogLevel:   getEnv("LOG_LEVEL", "info"),
 	}
 }
 

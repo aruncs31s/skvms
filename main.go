@@ -8,21 +8,37 @@ import (
 	"github.com/aruncs31s/skvms/internal/database"
 	httpHandler "github.com/aruncs31s/skvms/internal/handler/http"
 	"github.com/aruncs31s/skvms/internal/handler/middleware"
+	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/repository"
 	"github.com/aruncs31s/skvms/internal/service"
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func main() {
 	cfg := config.Load()
 
+	// Initialize logger
+	if err := logger.Init(cfg.LogDir, cfg.LogLevel); err != nil {
+		panic(fmt.Sprintf("Failed to initialize logger: %v", err))
+	}
+	defer logger.Sync()
+
+	logger.Info("Starting SKVMS application",
+		zap.String("log_dir", cfg.LogDir),
+		zap.String("log_level", cfg.LogLevel),
+	)
+
 	db, err := database.New(cfg)
 	if err != nil {
-		panic(err)
+		logger.Fatal("Failed to connect to database", zap.Error(err))
 	}
+	logger.Info("Database connection established")
+
 	if err := database.Seed(db); err != nil {
-		panic(err)
+		logger.Fatal("Failed to seed database", zap.Error(err))
 	}
+	logger.Info("Database seeded successfully")
 
 	userRepo := repository.NewUserRepository(db)
 	deviceRepo := repository.NewDeviceRepository(db)
@@ -94,7 +110,8 @@ func main() {
 		Handler: router,
 	}
 
+	logger.Info("Starting HTTP server", zap.String("address", serverAddr))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		panic(err)
+		logger.Fatal("Server failed to start", zap.Error(err))
 	}
 }
