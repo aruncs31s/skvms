@@ -8,6 +8,18 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
   </head>
   <body>
+    <nav class="navbar">
+      <div class="navbar-brand">
+        <a href="/">Smart Kerala Volt Metering</a>
+      </div>
+      <div class="navbar-menu">
+        <a href="/" class="navbar-item">Devices</a>
+        <a href="/all-readings" class="navbar-item">All Readings</a>
+        <a href="/login" class="navbar-item" id="navLoginLink">Login</a>
+        <button class="navbar-item button ghost" id="navLogoutBtn" style="display:none">Logout</button>
+        <span class="navbar-badge" id="navAuthBadge">Guest</span>
+      </div>
+    </nav>
     <div class="container">
       <header class="header">
         <div>
@@ -43,6 +55,8 @@
               </select>
             </label>
             <button class="button" id="refreshBtn" type="button">Refresh</button>
+            <button class="button secondary" id="exportCsvBtn" type="button">Export CSV</button>
+            <button class="button secondary" id="exportJsonBtn" type="button">Export JSON</button>
           </div>
         </div>
 

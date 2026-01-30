@@ -48,6 +48,9 @@ func main() {
 	router.GET("/devices/:id", func(c *gin.Context) {
 		c.File("./static/device.html")
 	})
+	router.GET("/all-readings", func(c *gin.Context) {
+		c.File("./static/all-readings.html")
+	})
 
 	api := router.Group("/api")
 	{

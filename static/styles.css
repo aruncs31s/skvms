@@ -8,6 +8,7 @@
   --accent-dark: #1e40af;
   --border: #e5e7eb;
   --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --navbar-height: 60px;
 }
 
 * {
@@ -21,6 +22,68 @@ body {
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
+  padding-top: var(--navbar-height);
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--navbar-height);
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 32px;
+  box-shadow: var(--shadow);
+  z-index: 1000;
+}
+
+.navbar-brand a {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.navbar-menu {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.navbar-item {
+  padding: 8px 16px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  transition: 0.2s ease;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.navbar-item:hover {
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent);
+}
+
+.navbar-item.active {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--accent);
+}
+
+.navbar-badge {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-left: 8px;
 }
 
 .container {
@@ -326,4 +389,59 @@ body {
 .login-panel {
   max-width: 420px;
   margin: 0 auto;
+}
+
+.all-devices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.device-reading-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.device-reading-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.device-reading-header h3 {
+  font-size: 1.1rem;
+}
+
+.device-reading-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.mini-stat {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.05);
+}
+
+.mini-stat-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.mini-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.device-reading-footer {
+  display: flex;
+  justify-content: flex-end;
 }

@@ -16,6 +16,10 @@ const authBadge = document.getElementById("authBadge");
 const logoutBtn = document.getElementById("logoutBtn");
 const loginLink = document.getElementById("loginLink");
 
+const navAuthBadge = document.getElementById("navAuthBadge");
+const navLogoutBtn = document.getElementById("navLogoutBtn");
+const navLoginLink = document.getElementById("navLoginLink");
+
 if (logoutBtn) {
   logoutBtn.addEventListener("click", () => {
     clearToken();
@@ -24,16 +28,35 @@ if (logoutBtn) {
   });
 }
 
+if (navLogoutBtn) {
+  navLogoutBtn.addEventListener("click", () => {
+    clearToken();
+    clearUser();
+    window.location.reload();
+  });
+}
+
 const updateAuthUI = () => {
   const user = getUser();
+  const displayText = user ? `Welcome, ${user.name}` : "Guest";
+  
   if (authBadge) {
-    authBadge.textContent = user ? `Welcome, ${user.name}` : "Guest";
+    authBadge.textContent = displayText;
+  }
+  if (navAuthBadge) {
+    navAuthBadge.textContent = displayText;
   }
   if (loginLink) {
     loginLink.style.display = user ? "none" : "inline-block";
   }
+  if (navLoginLink) {
+    navLoginLink.style.display = user ? "none" : "inline-block";
+  }
   if (logoutBtn) {
     logoutBtn.style.display = user ? "inline-block" : "none";
+  }
+  if (navLogoutBtn) {
+    navLogoutBtn.style.display = user ? "inline-block" : "none";
   }
 };
 
@@ -92,6 +115,11 @@ if (deviceList) {
 const deviceId = getDeviceIdFromPath();
 if (deviceId) {
   loadDevicePage(deviceId);
+}
+
+const allReadingsPage = window.location.pathname === "/all-readings";
+if (allReadingsPage) {
+  loadAllReadingsPage();
 }
 
 async function loadDevices() {
@@ -391,7 +419,226 @@ async function loadDevicePage(deviceId) {
   if (datePickerEl) datePickerEl.addEventListener("change", refresh);
   if (showYesterdayEl) showYesterdayEl.addEventListener("change", refresh);
 
+  const exportCsvBtn = document.getElementById("exportCsvBtn");
+  const exportJsonBtn = document.getElementById("exportJsonBtn");
+
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", () => {
+      const selectedDate = datePickerEl ? datePickerEl.value : null;
+      if (selectedDate) {
+        const start = new Date(selectedDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(selectedDate);
+        end.setHours(23, 59, 59, 999);
+        exportReadingsCSV(deviceId, Math.floor(start.getTime() / 1000), Math.floor(end.getTime() / 1000));
+      } else {
+        const limit = limitEl ? Number(limitEl.value) : 50;
+        exportReadingsCSV(deviceId, null, null, limit);
+      }
+    });
+  }
+
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener("click", () => {
+      const selectedDate = datePickerEl ? datePickerEl.value : null;
+      if (selectedDate) {
+        const start = new Date(selectedDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(selectedDate);
+        end.setHours(23, 59, 59, 999);
+        exportReadingsJSON(deviceId, Math.floor(start.getTime() / 1000), Math.floor(end.getTime() / 1000));
+      } else {
+        const limit = limitEl ? Number(limitEl.value) : 50;
+        exportReadingsJSON(deviceId, null, null, limit);
+      }
+    });
+  }
+
   await refresh();
+}
+
+async function exportReadingsCSV(deviceId, startTime, endTime, limit) {
+  try {
+    let url = `/api/devices/${deviceId}/readings`;
+    if (startTime && endTime) {
+      url = `/api/devices/${deviceId}/readings/range?start=${startTime}&end=${endTime}`;
+    } else if (limit) {
+      url += `?limit=${limit}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+    const readings = data.readings || [];
+
+    if (!readings.length) {
+      alert("No readings to export");
+      return;
+    }
+
+    let csv = "Time,Voltage (V),Current (A)\n";
+    readings.forEach((r) => {
+      const time = new Date(r.timestamp * 1000).toLocaleString();
+      csv += `"${time}",${r.voltage},${r.current}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `device-${deviceId}-readings.csv`;
+    link.click();
+  } catch (error) {
+    alert("Export failed");
+  }
+}
+
+async function exportReadingsJSON(deviceId, startTime, endTime, limit) {
+  try {
+    let url = `/api/devices/${deviceId}/readings`;
+    if (startTime && endTime) {
+      url = `/api/devices/${deviceId}/readings/range?start=${startTime}&end=${endTime}`;
+    } else if (limit) {
+      url += `?limit=${limit}`;
+    }
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `device-${deviceId}-readings.json`;
+    link.click();
+  } catch (error) {
+    alert("Export failed");
+  }
+}
+
+async function loadAllReadingsPage() {
+  const allDevicesGrid = document.getElementById("allDevicesGrid");
+  const refreshAllBtn = document.getElementById("refreshAllBtn");
+  const exportAllCsvBtn = document.getElementById("exportAllCsvBtn");
+  let combinedChart = null;
+
+  const fetchAllDevices = async () => {
+    const res = await fetch("/api/devices");
+    const data = await res.json();
+    if (!res.ok) throw new Error("failed to load devices");
+    return data.devices || [];
+  };
+
+  const fetchDeviceReadings = async (deviceId, limit = 20) => {
+    const res = await fetch(`/api/devices/${deviceId}/readings?limit=${limit}`);
+    const data = await res.json();
+    if (!res.ok) return { latest: null, readings: [] };
+    return data;
+  };
+
+  const renderAllDevices = async () => {
+    try {
+      allDevicesGrid.innerHTML = "<p class='muted'>Loading...</p>";
+      const devices = await fetchAllDevices();
+
+      const devicesData = await Promise.all(
+        devices.map(async (device) => {
+          const readingsData = await fetchDeviceReadings(device.id);
+          return { device, ...readingsData };
+        })
+      );
+
+      allDevicesGrid.innerHTML = devicesData
+        .map(
+          ({ device, latest }) => `
+        <div class="device-reading-card">
+          <div class="device-reading-header">
+            <h3>${device.name}</h3>
+            <span class="chip">${device.type}</span>
+          </div>
+          <div class="device-reading-stats">
+            <div class="mini-stat">
+              <div class="mini-stat-label">Voltage</div>
+              <div class="mini-stat-value">${latest ? latest.voltage.toFixed(1) : "--"} V</div>
+            </div>
+            <div class="mini-stat">
+              <div class="mini-stat-label">Current</div>
+              <div class="mini-stat-value">${latest ? latest.current.toFixed(2) : "--"} A</div>
+            </div>
+          </div>
+          <div class="device-reading-footer">
+            <a href="/devices/${device.id}" class="button ghost">View Details</a>
+          </div>
+        </div>
+      `
+        )
+        .join("");
+
+      renderCombinedChart(devicesData);
+    } catch (error) {
+      allDevicesGrid.innerHTML = "<p class='muted'>Failed to load devices.</p>";
+    }
+  };
+
+  const renderCombinedChart = (devicesData) => {
+    const series = [];
+    const colors = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+    devicesData.forEach((item, idx) => {
+      const readings = item.readings || [];
+      if (readings.length > 0) {
+        const voltageData = readings.map((r) => [r.timestamp * 1000, r.voltage]);
+        series.push({
+          name: `${item.device.name} - Voltage`,
+          data: voltageData,
+          color: colors[idx % colors.length],
+          yAxis: 0,
+        });
+      }
+    });
+
+    if (combinedChart) {
+      combinedChart.destroy();
+    }
+
+    combinedChart = Highcharts.chart("combinedChart", {
+      chart: { type: "spline", backgroundColor: "#ffffff" },
+      title: { text: "All Devices - Voltage Comparison", style: { fontWeight: "700", fontSize: "18px" } },
+      xAxis: { type: "datetime", title: { text: "Time" } },
+      yAxis: { title: { text: "Voltage (V)" }, labels: { format: "{value} V" } },
+      tooltip: { shared: true, crosshairs: true },
+      legend: { enabled: true },
+      series: series,
+    });
+  };
+
+  const exportAllCSV = async () => {
+    try {
+      const devices = await fetchAllDevices();
+      let csv = "Device,Time,Voltage (V),Current (A)\n";
+
+      for (const device of devices) {
+        const readingsData = await fetchDeviceReadings(device.id, 50);
+        const readings = readingsData.readings || [];
+        readings.forEach((r) => {
+          const time = new Date(r.timestamp * 1000).toLocaleString();
+          csv += `"${device.name}","${time}",${r.voltage},${r.current}\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "all-devices-readings.csv";
+      link.click();
+    } catch (error) {
+      alert("Export failed");
+    }
+  };
+
+  if (refreshAllBtn) refreshAllBtn.addEventListener("click", renderAllDevices);
+  if (exportAllCsvBtn) exportAllCsvBtn.addEventListener("click", exportAllCSV);
+
+  await renderAllDevices();
 }
 
 async function sendControlCommand(id) {

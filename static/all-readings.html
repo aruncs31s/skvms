@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>All Device Readings - Smart Kerala Volt Metering</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+  </head>
+  <body>
+    <nav class="navbar">
+      <div class="navbar-brand">
+        <a href="/"> Smart Kerala Volt Metering</a>
+      </div>
+      <div class="navbar-menu">
+        <a href="/" class="navbar-item">Devices</a>
+        <a href="/all-readings" class="navbar-item active">All Readings</a>
+        <a href="/login" class="navbar-item" id="navLoginLink">Login</a>
+        <button class="navbar-item button ghost" id="navLogoutBtn" style="display:none">Logout</button>
+        <span class="navbar-badge" id="navAuthBadge">Guest</span>
+      </div>
+    </nav>
+    <div class="container">
+      <header class="header">
+        <div>
+          <h1>All Device Readings</h1>
+          <p>Monitor all IoT devices from one dashboard</p>
+        </div>
+        <div class="header-actions">
+          <button class="button" id="refreshAllBtn" type="button">Refresh All</button>
+          <button class="button secondary" id="exportAllCsvBtn" type="button">Export All CSV</button>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Latest Readings</h2>
+        </div>
+        <div id="allDevicesGrid" class="all-devices-grid">
+          <p class="muted">Loading devices...</p>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Combined Chart</h2>
+        </div>
+        <div class="chart-section">
+          <div id="combinedChart" class="chart-container"></div>
+        </div>
+      </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
