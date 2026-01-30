@@ -17,6 +17,10 @@ func Seed(db *gorm.DB) error {
 		return err
 	}
 
+	if err := seedReadings(db); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -85,6 +89,47 @@ func seedDevices(db *gorm.DB) error {
 		}
 		if err := db.Create(&address).Error; err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func seedReadings(db *gorm.DB) error {
+	var deviceIDs []uint
+	if err := db.Model(&model.Device{}).Pluck("id", &deviceIDs).Error; err != nil {
+		return err
+	}
+	if len(deviceIDs) == 0 {
+		return nil
+	}
+
+	// If readings already exist, don't reseed.
+	var count int64
+	if err := db.Model(&model.Reading{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	now := time.Now()
+	for _, deviceID := range deviceIDs {
+		// 60 sample points, one per minute
+		for i := 0; i < 60; i++ {
+			ts := now.Add(-time.Duration(60-i) * time.Minute).Unix()
+			voltage := 220.0 + float64((i%7)-3)*0.8
+			current := 2.5 + float64((i%9)-4)*0.12
+
+			reading := model.Reading{
+				DeviceID:  deviceID,
+				Voltage:   voltage,
+				Current:   current,
+				Timestamp: ts,
+			}
+			if err := db.Create(&reading).Error; err != nil {
+				return err
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 
 type DeviceService interface {
 	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
+	GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
 	ControlDevice(ctx context.Context, id uint, command string) (string, error)
 }
 
@@ -23,6 +24,10 @@ func NewDeviceService(repo repository.DeviceRepository) DeviceService {
 
 func (s *deviceService) ListDevices(ctx context.Context) ([]dto.DeviceView, error) {
 	return s.repo.ListDevices(ctx)
+}
+
+func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
+	return s.repo.GetDevice(ctx, id)
 }
 
 func (s *deviceService) ControlDevice(ctx context.Context, id uint, command string) (string, error) {
