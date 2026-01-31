@@ -31,3 +31,17 @@ type UpdateDeviceRequest struct {
 	Address           string `json:"address"`
 	City              string `json:"city"`
 }
+
+type DeviceStateView struct {
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}
+
+type CreateDeviceStateRequest struct {
+	Name string `json:"name" binding:"required"`
+}
+
+type UpdateDeviceStateRequest struct {
+	Name string `json:"name" binding:"required"`
+}

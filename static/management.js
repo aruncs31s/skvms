@@ -341,10 +341,15 @@ function renderUsersTable(users) {
   `).join('');
 }
 
+// Global variable to store current user being edited
+let currentEditingUser = null;
+
 function showUserModal(user = null) {
   const modal = document.getElementById("userModal");
   const form = document.getElementById("userForm");
   const modalTitle = document.getElementById("modalTitle");
+
+  currentEditingUser = user; // Store the user data
 
   if (user) {
     modalTitle.textContent = "Edit User";
@@ -357,6 +362,7 @@ function showUserModal(user = null) {
     modalTitle.textContent = "Add User";
     form.reset();
     document.getElementById("userId").value = '';
+    currentEditingUser = null;
   }
 
   modal.style.display = "block";
@@ -408,11 +414,17 @@ async function handleUserSubmit(event) {
     name: formData.get("name"),
     username: formData.get("username"),
     email: formData.get("email"),
-    password: formData.get("password")
+    password: formData.get("password"),
+    role: currentEditingUser ? currentEditingUser.role : "user" // Use existing role for edit, default to "user" for new
   };
 
   const userId = formData.get("userId");
   const isEdit = userId && userId !== '';
+
+  // Remove empty password for updates
+  if (!userData.password) {
+    delete userData.password;
+  }
 
   try {
     const res = await fetch(isEdit ? `/api/users/${userId}` : "/api/users", {

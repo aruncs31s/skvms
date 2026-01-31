@@ -9,6 +9,15 @@ import (
 
 type AuditService interface {
 	Log(ctx context.Context, userID uint, username, action, details, ipAddress string) error
+	LogDeviceAction(
+		ctx context.Context,
+		userID uint,
+		username,
+		action,
+		details,
+		ipAddress string,
+		deviceID uint,
+	) error
 	List(ctx context.Context, action string, limit int) ([]model.AuditLog, error)
 }
 
@@ -20,7 +29,14 @@ func NewAuditService(repo repository.AuditRepository) AuditService {
 	return &auditService{repo: repo}
 }
 
-func (s *auditService) Log(ctx context.Context, userID uint, username, action, details, ipAddress string) error {
+func (s *auditService) Log(
+	ctx context.Context,
+	userID uint,
+	username,
+	action,
+	details,
+	ipAddress string,
+) error {
 	log := &model.AuditLog{
 		UserID:    userID,
 		Username:  username,
@@ -30,7 +46,25 @@ func (s *auditService) Log(ctx context.Context, userID uint, username, action, d
 	}
 	return s.repo.Create(ctx, log)
 }
-
+func (s *auditService) LogDeviceAction(
+	ctx context.Context,
+	userID uint,
+	username,
+	action,
+	details,
+	ipAddress string,
+	deviceID uint,
+) error {
+	log := &model.AuditLog{
+		UserID:    userID,
+		Username:  username,
+		Action:    action,
+		Details:   details,
+		IPAddress: ipAddress,
+		DeviceID:  &deviceID,
+	}
+	return s.repo.Create(ctx, log)
+}
 func (s *auditService) List(ctx context.Context, action string, limit int) ([]model.AuditLog, error) {
 	return s.repo.List(ctx, action, limit)
 }

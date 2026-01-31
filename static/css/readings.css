@@ -63,11 +63,44 @@
   overflow: hidden;
   background: #fff;
   padding: 16px;
+  margin-bottom: 24px;
 }
 
 .chart-container {
   width: 100%;
   height: 400px;
+  min-height: 300px;
+}
+
+/* Readings table container - for tables inside panels */
+.readings-table-container {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  margin-top: 16px;
+}
+
+/* Enhanced table styling for readings */
+.readings-table-container .table {
+  margin: 0;
+}
+
+.readings-table-container .table th {
+  background: rgba(37, 99, 235, 0.05);
+  font-weight: 700;
+  color: var(--text);
+  padding: 16px 14px;
+  border-bottom: 2px solid var(--border);
+}
+
+.readings-table-container .table td {
+  padding: 14px;
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.readings-table-container .table tbody tr:hover {
+  background: rgba(37, 99, 235, 0.02);
 }
 
 @media (max-width: 900px) {
@@ -77,5 +110,15 @@
   
   .stats {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chart-container {
+    height: 300px;
+  }
+
+  .readings-table-container .table th,
+  .readings-table-container .table td {
+    padding: 10px 8px;
+    font-size: 0.85rem;
   }
 }

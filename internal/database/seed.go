@@ -13,6 +13,9 @@ func Seed(db *gorm.DB) error {
 	if err := seedDeviceTypes(db); err != nil {
 		return err
 	}
+	if err := seedDeviceStates(db); err != nil {
+		return err
+	}
 	if err := seedAdminUser(db); err != nil {
 		return err
 	}

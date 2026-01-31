@@ -9,6 +9,7 @@ type UserView struct {
 }
 
 type CreateUserRequest struct {
+	Name     string `json:"name" binding:"required"`
 	Username string `json:"username" binding:"required"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
@@ -16,9 +17,10 @@ type CreateUserRequest struct {
 }
 
 type UpdateUserRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
+	Name     string `json:"name,omitempty"`
+	Username string `json:"username,omitempty"`
+	Email    string `json:"email,omitempty"`
 	Phone    string `json:"phone,omitempty"`
-	Password string `json:"password"`
-	Role     string `json:"role" binding:"required"`
+	Password string `json:"password,omitempty"`
+	Role     string `json:"role,omitempty"`
 }

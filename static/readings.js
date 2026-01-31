@@ -12,19 +12,14 @@ if (allReadingsPage) {
 }
 
 async function loadAllReadingsPage() {
-  console.log("Loading all readings page...");
   const readingsContainer = document.getElementById("allReadingsContainer");
-  if (!readingsContainer) {
-    console.log("allReadingsContainer not found!");
-    return;
-  }
+  if (!readingsContainer) return;
 
   readingsContainer.innerHTML = "<p class=\"muted\">Loading all readings...</p>";
 
   try {
     const res = await fetch("/api/devices");
     const data = await res.json();
-    console.log("Devices API response:", data);
 
     if (!res.ok) {
       readingsContainer.innerHTML = "<p class=\"muted\">Failed to load devices.</p>";
@@ -32,7 +27,6 @@ async function loadAllReadingsPage() {
     }
 
     const devices = data.devices || [];
-    console.log("Devices found:", devices);
     if (!devices.length) {
       readingsContainer.innerHTML = "<p class=\"muted\">No devices found.</p>";
       return;
@@ -40,13 +34,10 @@ async function loadAllReadingsPage() {
 
     // Load readings for all devices
     const allReadings = [];
-    console.log("Loading readings for", devices.length, "devices");
     for (const device of devices) {
       try {
-        console.log("Loading readings for device:", device.id, device.name);
         const readingsRes = await fetch(`/api/devices/${device.id}/readings?limit=10`);
         const readingsData = await readingsRes.json();
-        console.log("Readings for device", device.id, ":", readingsData);
         if (readingsRes.ok && readingsData.readings) {
           readingsData.readings.forEach(reading => {
             allReadings.push({
@@ -61,8 +52,6 @@ async function loadAllReadingsPage() {
       }
     }
 
-    console.log("Total readings collected:", allReadings.length);
-
     // Sort by timestamp descending
     allReadings.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -73,7 +62,6 @@ async function loadAllReadingsPage() {
 }
 
 function renderAllReadings(readings) {
-  console.log("Rendering readings:", readings);
   const readingsContainer = document.getElementById("allReadingsContainer");
 
   if (!readings.length) {
@@ -82,7 +70,7 @@ function renderAllReadings(readings) {
   }
 
   readingsContainer.innerHTML = `
-    <div class="table-wrap">
+    <div class="readings-table-container">
       <table class="table">
         <thead>
           <tr>
@@ -127,8 +115,6 @@ function renderAllReadings(readings) {
     name: group.name,
     data: group.data.sort((a, b) => a[0] - b[0])
   }));
-
-  console.log("Chart series:", series);
 
   if (typeof Highcharts !== 'undefined') {
     Highcharts.chart('combinedChart', {

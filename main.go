@@ -46,6 +46,7 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
 	versionRepo := repository.NewVersionRepository(db)
+	deviceStateRepo := repository.NewDeviceStateRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	deviceService := service.NewDeviceService(deviceRepo)
@@ -54,6 +55,7 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
+	deviceStateService := service.NewDeviceStateService(deviceStateRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceHandler := httpHandler.NewDeviceHandler(deviceService, auditService)
@@ -62,6 +64,7 @@ func main() {
 	userHandler := httpHandler.NewUserHandler(userService, auditService)
 	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
 	versionHandler := httpHandler.NewVersionHandler(versionService)
+	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, auditService)
 
 	// Initialize audit middleware
 	auditMiddleware := middleware.NewAuditMiddleware(auditService, cfg.JWTSecret)
@@ -103,6 +106,11 @@ func main() {
 		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), auditMiddleware.Audit("device_update"), deviceHandler.UpdateDevice)
 		api.DELETE("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.DeleteDevice)
 		api.GET("/device-types", deviceTypesHandler.ListDeviceTypes)
+		api.GET("/device-states", deviceStateHandler.ListDeviceStates)
+		api.GET("/device-states/:id", deviceStateHandler.GetDeviceState)
+		api.POST("/device-states", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.CreateDeviceState)
+		api.PUT("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.UpdateDeviceState)
+		api.DELETE("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.DeleteDeviceState)
 		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
 		api.GET("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetUser)
 		api.POST("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.CreateUser)

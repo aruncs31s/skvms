@@ -68,10 +68,6 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"device": device})
 }
 
-type controlRequest struct {
-	Command string `json:"command"`
-}
-
 func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -79,10 +75,14 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 		return
 	}
 
-	var req controlRequest
+	var req dto.ControlRequest
 	_ = c.ShouldBindJSON(&req)
 
-	message, err := h.deviceService.ControlDevice(c.Request.Context(), uint(id), req.Command)
+	message, err := h.deviceService.ControlDevice(
+		c.Request.Context(),
+		uint(id),
+		req.Action,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "command failed"})
 		return
@@ -95,8 +95,15 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 	// Audit log
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_control",
-		message, c.ClientIP())
+	_ = h.auditService.LogDeviceAction(
+		c.Request.Context(),
+		userID.(uint),
+		username.(string),
+		"device_control",
+		message,
+		c.ClientIP(),
+		uint(id),
+	)
 
 	c.JSON(http.StatusOK, gin.H{"message": message})
 }

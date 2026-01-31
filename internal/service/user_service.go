@@ -38,6 +38,7 @@ func (s *userService) List(ctx context.Context) ([]dto.UserView, error) {
 	for i, user := range users {
 		views[i] = dto.UserView{
 			ID:       user.ID,
+			Name:     user.Name,
 			Username: user.Username,
 			Email:    user.Email,
 			Role:     user.Role,
@@ -54,6 +55,7 @@ func (s *userService) GetByID(ctx context.Context, id uint) (*dto.UserView, erro
 
 	view := &dto.UserView{
 		ID:       user.ID,
+		Name:     user.Name,
 		Username: user.Username,
 		Email:    user.Email,
 		Role:     user.Role,
@@ -68,6 +70,7 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) er
 	}
 
 	user := &model.User{
+		Name:     req.Name,
 		Username: req.Username,
 		Email:    req.Email,
 		Password: string(hashedPassword),
@@ -79,6 +82,7 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) er
 func (s *userService) Update(ctx context.Context, id uint, req *dto.UpdateUserRequest) error {
 	user := &model.User{
 		ID:       id,
+		Name:     req.Name,
 		Username: req.Username,
 		Email:    req.Email,
 		Role:     req.Role,

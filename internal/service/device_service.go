@@ -10,9 +10,18 @@ import (
 )
 
 type DeviceService interface {
-	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
-	GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
-	ControlDevice(ctx context.Context, id uint, command string) (string, error)
+	ListDevices(
+		ctx context.Context,
+	) ([]dto.DeviceView, error)
+	GetDevice(
+		ctx context.Context,
+		id uint,
+	) (*model.Device, error)
+	ControlDevice(
+		ctx context.Context,
+		id,
+		action uint,
+	) (string, error)
 	CreateDevice(ctx context.Context, req *dto.CreateDeviceRequest) error
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
 	DeleteDevice(ctx context.Context, id uint) error
@@ -34,7 +43,11 @@ func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView
 	return s.repo.GetDevice(ctx, id)
 }
 
-func (s *deviceService) ControlDevice(ctx context.Context, id uint, command string) (string, error) {
+func (s *deviceService) ControlDevice(
+	ctx context.Context,
+	id uint,
+	action uint,
+) (string, error) {
 	device, err := s.repo.GetDevice(ctx, id)
 	if err != nil {
 		return "", err
@@ -42,9 +55,12 @@ func (s *deviceService) ControlDevice(ctx context.Context, id uint, command stri
 	if device == nil {
 		return "", nil
 	}
-	if command == "" {
-		command = "connect"
+
+	a, ok := model.DeviceActionsMap[model.DeviceAction(action)]
+	if !ok {
+		return "", fmt.Errorf("invalid action")
 	}
+
 	return fmt.Sprintf("Device %s (%d) command accepted: %s", device.Name, device.ID, command), nil
 }
 

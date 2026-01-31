@@ -21,8 +21,8 @@
           <p>Monitor all IoT devices from one dashboard</p>
         </div>
         <div class="header-actions">
-          <button class="button" id="refreshAllBtn" type="button">Refresh All</button>
-          <button class="button secondary" id="exportAllCsvBtn" type="button">Export All CSV</button>
+          <button class="button secondary" id="refreshAllBtn" type="button">Refresh All</button>
+          <button class="button secondary" id="exportAllCsvBtn" type="button">Export CSV</button>
         </div>
       </header>
 
@@ -31,15 +31,18 @@
           <h2>Combined Chart</h2>
         </div>
         <div class="chart-section">
-          <div id="combinedChart" class="chart-container" style="height: 400px;"></div>
+          <div id="combinedChart" class="chart-container"></div>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
           <h2>Latest Readings</h2>
+          <div class="header-actions">
+            <span class="muted">Last 10 readings per device</span>
+          </div>
         </div>
-        <div id="allReadingsContainer" class="all-devices-grid">
+        <div id="allReadingsContainer">
           <p class="muted">Loading devices...</p>
         </div>
       </section>

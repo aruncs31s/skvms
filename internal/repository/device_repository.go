@@ -10,7 +10,7 @@ import (
 
 type DeviceRepository interface {
 	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
-	GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
+	GetDevice(ctx context.Context, id uint) (*model.Device, error)
 	CreateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error
 	UpdateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error
 	DeleteDevice(ctx context.Context, id uint) error
@@ -41,15 +41,10 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 	return devices, nil
 }
 
-func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
-	var device dto.DeviceView
+func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Device, error) {
+	var device model.Device
 	err := r.db.WithContext(ctx).
-		Table("devices").
-		Select("devices.id, devices.name, dt.type_name AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, devices.version_id AS version_id, device_address.address, device_address.city").
-		Joins("LEFT JOIN device_details ON device_details.device_id = devices.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = devices.id").
-		Joins("LEFT JOIN device_types dt ON dt.id = devices.device_type").
-		Where("devices.id = ?", id).
+		First(&device, id).
 		Scan(&device).Error
 	if err != nil {
 		return nil, err
