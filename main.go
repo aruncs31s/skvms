@@ -104,6 +104,7 @@ func main() {
 		api.DELETE("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.DeleteDevice)
 		api.GET("/device-types", deviceTypesHandler.ListDeviceTypes)
 		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
+		api.GET("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetUser)
 		api.POST("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.CreateUser)
 		api.PUT("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.UpdateUser)
 		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)

@@ -14,6 +14,10 @@ type UserService interface {
 	Create(ctx context.Context, req *dto.CreateUserRequest) error
 	Update(ctx context.Context, id uint, req *dto.UpdateUserRequest) error
 	Delete(ctx context.Context, id uint) error
+	UserReader
+}
+type UserReader interface {
+	GetByID(ctx context.Context, id uint) (*dto.UserView, error)
 }
 
 type userService struct {
@@ -40,6 +44,21 @@ func (s *userService) List(ctx context.Context) ([]dto.UserView, error) {
 		}
 	}
 	return views, nil
+}
+
+func (s *userService) GetByID(ctx context.Context, id uint) (*dto.UserView, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	view := &dto.UserView{
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
+		Role:     user.Role,
+	}
+	return view, nil
 }
 
 func (s *userService) Create(ctx context.Context, req *dto.CreateUserRequest) error {

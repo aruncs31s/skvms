@@ -23,3 +23,15 @@ type User struct {
 func (User) TableName() string {
 	return "users"
 }
+
+type UserDetail struct {
+	ID     uint   `gorm:"primaryKey;autoIncrement"`
+	UserID uint   `gorm:"column:user_id;not null;unique"`
+	Phone  string `gorm:"column:phone"`
+
+	User User `gorm:"foreignKey:UserID;references:ID"`
+}
+
+func (UserDetail) TableName() string {
+	return "user_details"
+}

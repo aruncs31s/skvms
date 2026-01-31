@@ -12,14 +12,19 @@ if (allReadingsPage) {
 }
 
 async function loadAllReadingsPage() {
+  console.log("Loading all readings page...");
   const readingsContainer = document.getElementById("allReadingsContainer");
-  if (!readingsContainer) return;
+  if (!readingsContainer) {
+    console.log("allReadingsContainer not found!");
+    return;
+  }
 
   readingsContainer.innerHTML = "<p class=\"muted\">Loading all readings...</p>";
 
   try {
     const res = await fetch("/api/devices");
     const data = await res.json();
+    console.log("Devices API response:", data);
 
     if (!res.ok) {
       readingsContainer.innerHTML = "<p class=\"muted\">Failed to load devices.</p>";
@@ -27,6 +32,7 @@ async function loadAllReadingsPage() {
     }
 
     const devices = data.devices || [];
+    console.log("Devices found:", devices);
     if (!devices.length) {
       readingsContainer.innerHTML = "<p class=\"muted\">No devices found.</p>";
       return;
@@ -34,10 +40,13 @@ async function loadAllReadingsPage() {
 
     // Load readings for all devices
     const allReadings = [];
+    console.log("Loading readings for", devices.length, "devices");
     for (const device of devices) {
       try {
+        console.log("Loading readings for device:", device.id, device.name);
         const readingsRes = await fetch(`/api/devices/${device.id}/readings?limit=10`);
         const readingsData = await readingsRes.json();
+        console.log("Readings for device", device.id, ":", readingsData);
         if (readingsRes.ok && readingsData.readings) {
           readingsData.readings.forEach(reading => {
             allReadings.push({
@@ -52,6 +61,8 @@ async function loadAllReadingsPage() {
       }
     }
 
+    console.log("Total readings collected:", allReadings.length);
+
     // Sort by timestamp descending
     allReadings.sort((a, b) => b.timestamp - a.timestamp);
 
@@ -62,6 +73,7 @@ async function loadAllReadingsPage() {
 }
 
 function renderAllReadings(readings) {
+  console.log("Rendering readings:", readings);
   const readingsContainer = document.getElementById("allReadingsContainer");
 
   if (!readings.length) {
@@ -70,28 +82,30 @@ function renderAllReadings(readings) {
   }
 
   readingsContainer.innerHTML = `
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Device</th>
-          <th>Time</th>
-          <th>Voltage (V)</th>
-          <th>Current (A)</th>
-          <th>Power (W)</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${readings.map(reading => `
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
           <tr>
-            <td><a href="/devices/${reading.deviceId}">${reading.deviceName}</a></td>
-            <td>${new Date(reading.timestamp * 1000).toLocaleString()}</td>
-            <td>${reading.voltage.toFixed(2)}</td>
-            <td>${reading.current.toFixed(2)}</td>
-            <td>${(reading.voltage * reading.current).toFixed(2)}</td>
+            <th>Device</th>
+            <th>Time</th>
+            <th>Voltage (V)</th>
+            <th>Current (A)</th>
+            <th>Power (W)</th>
           </tr>
-        `).join('')}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          ${readings.map(reading => `
+            <tr>
+              <td><a href="/devices/${reading.deviceId}" class="table-link">${reading.deviceName}</a></td>
+              <td>${new Date(reading.timestamp * 1000).toLocaleString()}</td>
+              <td>${reading.voltage.toFixed(2)}</td>
+              <td>${reading.current.toFixed(2)}</td>
+              <td>${(reading.voltage * reading.current).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
   `;
 
   // Create combined chart
@@ -114,10 +128,16 @@ function renderAllReadings(readings) {
     data: group.data.sort((a, b) => a[0] - b[0])
   }));
 
-  Highcharts.chart('combinedChart', {
-    title: { text: 'Combined Device Voltages' },
-    xAxis: { type: 'datetime' },
-    yAxis: { title: { text: 'Voltage (V)' } },
-    series: series
-  });
+  console.log("Chart series:", series);
+
+  if (typeof Highcharts !== 'undefined') {
+    Highcharts.chart('combinedChart', {
+      title: { text: 'Combined Device Voltages' },
+      xAxis: { type: 'datetime' },
+      yAxis: { title: { text: 'Voltage (V)' } },
+      series: series
+    });
+  } else {
+    console.error("Highcharts not loaded");
+  }
 }
