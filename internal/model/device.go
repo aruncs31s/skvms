@@ -5,7 +5,7 @@ package model
 type Device struct {
 	ID   uint   `gorm:"column:id;primaryKey;autoIncrement"`
 	Name string `gorm:"column:name"`
-	//
+	// 1 -  , 2 - Sensor
 	Type      uint `gorm:"column:device_type"`
 	VersionID uint `gorm:"column:version_id"`
 

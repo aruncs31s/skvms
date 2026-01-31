@@ -16,7 +16,10 @@ type DeviceHandler struct {
 	auditService  service.AuditService
 }
 
-func NewDeviceHandler(deviceService service.DeviceService, auditService service.AuditService) *DeviceHandler {
+func NewDeviceHandler(
+	deviceService service.DeviceService,
+	auditService service.AuditService,
+) *DeviceHandler {
 	return &DeviceHandler{
 		deviceService: deviceService,
 		auditService:  auditService,
@@ -30,7 +33,12 @@ func (h *DeviceHandler) ListDevices(c *gin.Context) {
 			zap.Error(err),
 			zap.String("ip", c.ClientIP()),
 		)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load devices"})
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to load devices",
+				"details": err.Error(),
+			})
 		return
 	}
 
@@ -101,7 +109,12 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 	}
 
 	if err := h.deviceService.CreateDevice(c.Request.Context(), &req); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create device"})
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to create device",
+				"details": err.Error(),
+			})
 		return
 	}
 

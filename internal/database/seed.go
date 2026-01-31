@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
@@ -30,24 +31,69 @@ func Seed(db *gorm.DB) error {
 /* ---------------- Device Types ---------------- */
 
 func seedDeviceTypes(db *gorm.DB) error {
-	deviceTypes := []string{
-		"esp8266",
-		"esp32",
-		"volt-current-meter",
-		"smart-switch",
-		"sensor-node",
-		"temperature-sensor",
-		"humidity-sensor",
-		"motion-detector",
-		"relay-module",
-		"power-monitor",
-		"energy-meter",
+	devTypes := []model.DeviceTypes{
+		{
+			Name:         "esp8266",
+			HardwareType: 1,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "esp32",
+			HardwareType: 1,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "volt-current-meter",
+			HardwareType: 2,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "smart-switch",
+			HardwareType: 3,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "sensor-node",
+			HardwareType: 4,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "temperature-sensor",
+			HardwareType: 4,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "humidity-sensor",
+			HardwareType: 4,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "motion-detector",
+			HardwareType: 4,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "relay-module",
+			HardwareType: 3,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "power-monitor",
+			HardwareType: 2,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "energy-meter",
+			HardwareType: 2,
+			CreatedBy:    1,
+		},
 	}
 
-	for _, name := range deviceTypes {
+	for _, dt := range devTypes {
 		if err := db.FirstOrCreate(
 			&model.DeviceTypes{},
-			model.DeviceTypes{Name: name},
+			model.DeviceTypes{Name: dt.Name},
+			dt,
 		).Error; err != nil {
 			return err
 		}
@@ -132,34 +178,60 @@ func seedDevices(db *gorm.DB) error {
 		return nil
 	}
 
-	var deviceType model.DeviceTypes
-	if err := db.Where("type_name = ?", "volt-current-meter").
-		First(&deviceType).Error; err != nil {
+	// Get all device types
+	var deviceTypes []model.DeviceTypes
+	if err := db.Find(&deviceTypes).Error; err != nil {
 		return err
 	}
 
-	var version model.Version
-	if err := db.Where("version = ?", "1.0.0").
-		First(&version).Error; err != nil {
+	// Get versions
+	var versions []model.Version
+	if err := db.Order("id").Find(&versions).Error; err != nil {
 		return err
 	}
 
-	devices := []struct {
+	// Device data for each type
+	deviceData := map[string]struct {
 		Name string
 		MAC  string
 		IP   string
 	}{
-		{"Main Panel Meter", "AA:BB:CC:DD:EE:FF", "192.168.1.100"},
-		{"Workshop Feeder", "BB:CC:DD:EE:FF:AA", "192.168.1.101"},
-		{"Solar Inverter Line", "CC:DD:EE:FF:AA:BB", "192.168.1.102"},
+		"volt-current-meter": {"Main Panel Meter", "AA:BB:CC:DD:EE:FF", "192.168.1.100"},
+		"smart-switch":       {"Living Room Switch", "BB:CC:DD:EE:FF:AA", "192.168.1.101"},
+		"sensor-node":        {"Temperature Sensor", "CC:DD:EE:FF:AA:BB", "192.168.1.102"},
+		"temperature-sensor": {"Office Temp Sensor", "DD:EE:FF:AA:BB:CC", "192.168.1.103"},
+		"humidity-sensor":    {"Warehouse Humidity", "EE:FF:AA:BB:CC:DD", "192.168.1.104"},
+		"motion-detector":    {"Entrance Motion", "FF:AA:BB:CC:DD:EE", "192.168.1.105"},
+		"relay-module":       {"Pump Relay", "AA:BB:CC:DD:EE:11", "192.168.1.106"},
+		"power-monitor":      {"Server Room Monitor", "BB:CC:DD:EE:FF:22", "192.168.1.107"},
+		"energy-meter":       {"Building Meter", "CC:DD:EE:FF:AA:33", "192.168.1.108"},
 	}
 
-	for _, d := range devices {
+	ipCounter := 100
+	for _, dt := range deviceTypes {
+		data, exists := deviceData[dt.Name]
+		if !exists {
+			data = struct {
+				Name string
+				MAC  string
+				IP   string
+			}{
+				Name: dt.Name + " Device",
+				MAC:  fmt.Sprintf("00:11:22:33:44:%02X", ipCounter),
+				IP:   fmt.Sprintf("192.168.1.%d", ipCounter),
+			}
+		}
+
+		// Assign version based on type
+		versionIndex := (int(dt.ID) - 1) % len(versions)
+		version := versions[versionIndex]
+
 		err := db.Transaction(func(tx *gorm.DB) error {
 			device := model.Device{
-				Name:      d.Name,
-				Type:      deviceType.ID,
+				Name:      data.Name,
+				Type:      dt.ID,
 				VersionID: version.ID,
+				State:     1, // Active
 				CreatedBy: 1,
 				UpdatedBy: 1,
 			}
@@ -170,23 +242,28 @@ func seedDevices(db *gorm.DB) error {
 			now := time.Now()
 			if err := tx.Create(&model.DeviceDetails{
 				DeviceID:        device.ID,
-				IPAddress:       d.IP,
-				MACAddress:      d.MAC,
-				FirmwareVersion: "1.0.0",
+				IPAddress:       data.IP,
+				MACAddress:      data.MAC,
+				FirmwareVersion: version.Version,
 				LastSeenAt:      &now,
 			}).Error; err != nil {
 				return err
 			}
 
-			return tx.Create(&model.DeviceAddress{
+			if err := tx.Create(&model.DeviceAddress{
 				DeviceID: device.ID,
 				Address:  "Smart Kerala Facility",
 				City:     "Kochi",
-			}).Error
+			}).Error; err != nil {
+				return err
+			}
+
+			return nil
 		})
 		if err != nil {
 			return err
 		}
+		ipCounter++
 	}
 
 	return nil
