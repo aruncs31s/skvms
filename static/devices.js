@@ -152,37 +152,42 @@ function renderReadings(readings) {
     return;
   }
 
-  // Create chart
+  // Update stats
+  const latest = readings[readings.length - 1];
+  document.getElementById("latestVoltage").textContent = latest.voltage.toFixed(2);
+  document.getElementById("latestCurrent").textContent = latest.current.toFixed(2);
+  document.getElementById("latestTime").textContent = new Date(latest.timestamp * 1000).toLocaleString();
+
+  const voltages = readings.map(r => r.voltage);
+  const maxVoltage = Math.max(...voltages);
+  const minVoltage = Math.min(...voltages);
+  document.getElementById("maxVoltage").textContent = maxVoltage.toFixed(2);
+  document.getElementById("minVoltage").textContent = minVoltage.toFixed(2);
+
+  const maxVoltageReading = readings.find(r => r.voltage === maxVoltage);
+  const minVoltageReading = readings.find(r => r.voltage === minVoltage);
+  document.getElementById("maxVoltageTime").textContent = new Date(maxVoltageReading.timestamp * 1000).toLocaleString();
+  document.getElementById("minVoltageTime").textContent = new Date(minVoltageReading.timestamp * 1000).toLocaleString();
+
+  // Analyze battery status
+  const currents = readings.map(r => r.current);
+  const avgCurrent = currents.reduce((a, b) => a + b, 0) / currents.length;
+  let status = "Idle";
+  if (avgCurrent > 0.1) {
+    status = "Charging";
+  } else if (avgCurrent < -0.1) {
+    status = "Discharging";
+  }
+  document.getElementById("batteryStatus").textContent = status;
+
+  // Create chart data
   const chartData = readings.map(r => ({
     timestamp: new Date(r.timestamp * 1000),
     voltage: r.voltage,
     current: r.current
   })).reverse();
 
-  Highcharts.chart('readingsChart', {
-    title: { text: 'Voltage & Current Readings' },
-    xAxis: { type: 'datetime' },
-    yAxis: [{
-      title: { text: 'Voltage (V)' },
-      opposite: false
-    }, {
-      title: { text: 'Current (A)' },
-      opposite: true
-    }],
-    series: [{
-      name: 'Voltage',
-      data: chartData.map(d => [d.timestamp.getTime(), d.voltage]),
-      yAxis: 0,
-      color: '#007bff'
-    }, {
-      name: 'Current',
-      data: chartData.map(d => [d.timestamp.getTime(), d.current]),
-      yAxis: 1,
-      color: '#28a745'
-    }]
-  });
-
-  // Create readings table
+  // Set the container HTML
   readingsContainer.innerHTML = `
     <div id="readingsChart" style="height: 400px; margin-bottom: 20px;"></div>
     <table class="table">
@@ -206,6 +211,30 @@ function renderReadings(readings) {
       </tbody>
     </table>
   `;
+
+  // Create chart
+  Highcharts.chart('readingsChart', {
+    title: { text: 'Voltage & Current Readings' },
+    xAxis: { type: 'datetime' },
+    yAxis: [{
+      title: { text: 'Voltage (V)' },
+      opposite: false
+    }, {
+      title: { text: 'Current (A)' },
+      opposite: true
+    }],
+    series: [{
+      name: 'Voltage',
+      data: chartData.map(d => [d.timestamp.getTime(), d.voltage]),
+      yAxis: 0,
+      color: '#007bff'
+    }, {
+      name: 'Current',
+      data: chartData.map(d => [d.timestamp.getTime(), d.current]),
+      yAxis: 1,
+      color: '#28a745'
+    }]
+  });
 }
 
 // Initialize device-related event listeners
