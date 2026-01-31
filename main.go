@@ -24,27 +24,28 @@ func main() {
 	}
 	defer logger.Sync()
 
-	logger.Info("Starting SKVMS application",
+	logger.GetLogger().Info("Starting SKVMS application",
 		zap.String("log_dir", cfg.LogDir),
 		zap.String("log_level", cfg.LogLevel),
 	)
 
 	db, err := database.New(cfg)
 	if err != nil {
-		logger.Fatal("Failed to connect to database", zap.Error(err))
+		logger.GetLogger().Fatal("Failed to connect to database", zap.Error(err))
 	}
-	logger.Info("Database connection established")
+	logger.GetLogger().Info("Database connection established")
 
 	if err := database.Seed(db); err != nil {
-		logger.Fatal("Failed to seed database", zap.Error(err))
+		logger.GetLogger().Fatal("Failed to seed database", zap.Error(err))
 	}
-	logger.Info("Database seeded successfully")
+	logger.GetLogger().Info("Database seeded successfully")
 
 	userRepo := repository.NewUserRepository(db)
 	deviceRepo := repository.NewDeviceRepository(db)
 	readingRepo := repository.NewReadingRepository(db)
 	auditRepo := repository.NewAuditRepository(db)
 	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
+	versionRepo := repository.NewVersionRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	deviceService := service.NewDeviceService(deviceRepo)
@@ -52,6 +53,7 @@ func main() {
 	auditService := service.NewAuditService(auditRepo)
 	userService := service.NewUserService(userRepo)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
+	versionService := service.NewVersionService(versionRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceHandler := httpHandler.NewDeviceHandler(deviceService, auditService)
@@ -59,6 +61,7 @@ func main() {
 	auditHandler := httpHandler.NewAuditHandler(auditService)
 	userHandler := httpHandler.NewUserHandler(userService, auditService)
 	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
+	versionHandler := httpHandler.NewVersionHandler(versionService)
 
 	router := gin.Default()
 
@@ -102,6 +105,15 @@ func main() {
 		api.PUT("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.UpdateUser)
 		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)
 		api.GET("/audit", middleware.JWTAuth(cfg.JWTSecret), auditHandler.ListAuditLogs)
+		api.POST("/versions", middleware.JWTAuth(cfg.JWTSecret), versionHandler.CreateVersion)
+		api.GET("/versions", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetAllVersions)
+		api.GET("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetVersion)
+		api.PUT("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.UpdateVersion)
+		api.DELETE("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.DeleteVersion)
+		api.POST("/features", middleware.JWTAuth(cfg.JWTSecret), versionHandler.CreateFeature)
+		api.GET("/features/version/:verid", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetFeaturesByVersion)
+		api.PUT("/features/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.UpdateFeature)
+		api.DELETE("/features/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.DeleteFeature)
 	}
 
 	serverAddr := fmt.Sprintf(":%s", cfg.ServerPort)
@@ -110,8 +122,8 @@ func main() {
 		Handler: router,
 	}
 
-	logger.Info("Starting HTTP server", zap.String("address", serverAddr))
+	logger.GetLogger().Info("Starting HTTP server", zap.String("address", serverAddr))
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		logger.Fatal("Server failed to start", zap.Error(err))
+		logger.GetLogger().Fatal("Server failed to start", zap.Error(err))
 	}
 }

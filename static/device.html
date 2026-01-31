@@ -17,6 +17,7 @@
         </div>
         <div class="header-actions">
           <a class="button ghost" href="/">Back</a>
+          <button class="button secondary" id="addVersionBtn">Add Version</button>
           <a class="button ghost" href="/login" id="loginLink">Login</a>
           <button class="button secondary" id="logoutBtn">Logout</button>
         </div>
@@ -92,6 +93,40 @@
           <p class="muted" id="readingsEmpty" style="display: none">No readings found.</p>
         </div>
       </section>
+
+      <!-- Version Modal -->
+      <div id="versionModal" class="modal">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3 id="versionModalTitle">Add New Version</h3>
+            <button class="modal-close" id="closeVersionModal">&times;</button>
+          </div>
+          <form id="versionForm">
+            <div class="form-group">
+              <label for="versionNumber">Version Number</label>
+              <input type="text" id="versionNumber" placeholder="e.g., 1.2.0" required>
+            </div>
+            <div class="form-group">
+              <label>Features</label>
+              <div id="featuresContainer">
+                <div class="feature-item">
+                  <input type="text" class="feature-name" placeholder="Feature name" required>
+                  <label class="checkbox-label">
+                    <input type="checkbox" class="feature-enabled" checked>
+                    Enabled
+                  </label>
+                  <button type="button" class="button ghost remove-feature">Remove</button>
+                </div>
+              </div>
+              <button type="button" class="button secondary" id="addFeatureBtn">Add Feature</button>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="button ghost" id="cancelVersionBtn">Cancel</button>
+              <button type="submit" class="button">Create Version</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
 
     <script src="/static/app.js"></script>

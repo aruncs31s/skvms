@@ -26,7 +26,7 @@ type loginRequest struct {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.Warn("Invalid login request",
+		logger.GetLogger().Warn("Invalid login request",
 			zap.String("ip", c.ClientIP()),
 			zap.Error(err),
 		)
@@ -36,7 +36,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	token, user, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		logger.Error("Login failed",
+		logger.GetLogger().Error("Login failed",
 			zap.String("username", req.Username),
 			zap.String("ip", c.ClientIP()),
 			zap.Error(err),
@@ -45,7 +45,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if user == nil || token == "" {
-		logger.Warn("Invalid credentials attempt",
+		logger.GetLogger().Warn("Invalid credentials attempt",
 			zap.String("username", req.Username),
 			zap.String("ip", c.ClientIP()),
 		)
@@ -57,7 +57,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	ipAddress := c.ClientIP()
 	_ = h.auditService.Log(c.Request.Context(), user.ID, user.Username, "login", "User logged in successfully", ipAddress)
 
-	logger.Info("User logged in successfully",
+	logger.GetLogger().Info("User logged in successfully",
 		zap.String("username", user.Username),
 		zap.Uint("user_id", user.ID),
 		zap.String("ip", ipAddress),

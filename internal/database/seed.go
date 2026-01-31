@@ -17,6 +17,10 @@ func Seed(db *gorm.DB) error {
 		return err
 	}
 
+	if err := seedVersions(db); err != nil {
+		return err
+	}
+
 	if err := seedDevices(db); err != nil {
 		return err
 	}
@@ -89,11 +93,14 @@ func seedDevices(db *gorm.DB) error {
 	if err := db.Where("type_name = ?", "volt-current-meter").First(&deviceType).Error; err != nil {
 		return err
 	}
-
+	var version model.Version
+	if err := db.Where("version = ?", "1.0.0").First(&version).Error; err != nil {
+		return err
+	}
 	devices := []model.Device{
-		{Name: "Main Panel Meter", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
-		{Name: "Workshop Feeder", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
-		{Name: "Solar Inverter Line", Type: deviceType.ID, CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Main Panel Meter", Type: deviceType.ID, VersionID: version.ID, CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Workshop Feeder", Type: deviceType.ID, VersionID: version.ID, CreatedBy: 1, UpdatedBy: 1},
+		{Name: "Solar Inverter Line", Type: deviceType.ID, VersionID: version.ID, CreatedBy: 1, UpdatedBy: 1},
 	}
 
 	macs := []string{"AA:BB:CC:DD:EE:FF", "BB:CC:DD:EE:FF:AA", "CC:DD:EE:FF:AA:BB"}
@@ -164,6 +171,43 @@ func seedReadings(db *gorm.DB) error {
 			if err := db.Create(&reading).Error; err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+func seedVersions(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&model.Version{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	versions := []model.Version{
+		{Version: "1.0.0"},
+		{Version: "1.1.0"},
+		{Version: "2.0.0"},
+	}
+
+	for _, v := range versions {
+		if err := db.Create(&v).Error; err != nil {
+			return err
+		}
+	}
+
+	// Seed features for version 2.0.0 (assuming it gets ID 3)
+	features := []model.Feature{
+		{VersionID: 3, FeatureName: "remote-control", Enabled: true},
+		{VersionID: 3, FeatureName: "energy-monitoring", Enabled: true},
+		{VersionID: 3, FeatureName: "alert-system", Enabled: false},
+	}
+
+	for _, f := range features {
+		if err := db.Create(&f).Error; err != nil {
+			return err
 		}
 	}
 
