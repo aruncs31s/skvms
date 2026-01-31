@@ -305,6 +305,29 @@ body {
   background: rgba(37, 99, 235, 0.05);
 }
 
+/* Table link styles - for clickable ID cells */
+.table-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.table-link:hover {
+  color: var(--accent-dark);
+}
+
+/* Clickable row styles - for entire row click functionality */
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.clickable-row:hover {
+  background: rgba(37, 99, 235, 0.08) !important;
+}
+
 @media (max-width: 900px) {
   .reading-layout {
     grid-template-columns: 1fr;

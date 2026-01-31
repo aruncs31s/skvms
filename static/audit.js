@@ -1,43 +1,57 @@
 // audit.js - Audit page functionality
 
 const auditPage = window.location.pathname === "/audit";
+console.log("Current path:", window.location.pathname, "Is audit page:", auditPage);
 if (auditPage) {
   loadAuditPage();
 }
 
 async function loadAuditPage() {
+  console.log("Loading audit page...");
   const auditTableBody = document.getElementById("auditTableBody");
-  if (!auditTableBody) return;
+  if (!auditTableBody) {
+    console.log("auditTableBody not found!");
+    return;
+  }
 
   auditTableBody.innerHTML = "<tr><td colspan=\"5\">Loading audit logs...</td></tr>";
 
   try {
+    const token = getToken();
+    console.log("Token:", token);
     const res = await fetch("/api/audit", {
       headers: {
-        "Authorization": `Bearer ${getToken()}`
+        "Authorization": `Bearer ${token}`
       }
     });
+    console.log("Response status:", res.status);
     const data = await res.json();
-
+    console.log("Response data:", data);
     if (!res.ok) {
       auditTableBody.innerHTML = "<tr><td colspan=\"5\">Failed to load audit logs</td></tr>";
       return;
     }
-
-    renderAuditTable(data || []);
+    renderAuditTable(data.logs || []);
   } catch (error) {
     auditTableBody.innerHTML = "<tr><td colspan=\"5\">Failed to load audit logs</td></tr>";
   }
 
   // Export CSV button
-  const exportCsvBtn = document.getElementById("exportAuditCsvBtn");
+  const exportCsvBtn = document.getElementById("exportAuditBtn");
   if (exportCsvBtn) {
     exportCsvBtn.addEventListener("click", exportAuditCSV);
+  }
+
+  // Refresh button
+  const refreshBtn = document.getElementById("refreshAuditBtn");
+  if (refreshBtn) {
+    refreshBtn.addEventListener("click", loadAuditPage);
   }
 }
 
 function renderAuditTable(auditLogs) {
   const auditTableBody = document.getElementById("auditTableBody");
+  console.log("Rendering audit logs:", auditLogs);
 
   if (!auditLogs.length) {
     auditTableBody.innerHTML = "<tr><td colspan=\"5\">No audit logs found</td></tr>";

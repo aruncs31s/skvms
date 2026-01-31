@@ -1,5 +1,15 @@
 // management.js - Management pages (devices and users)
-
+/**
+ * @typedef {Object} Device
+ * @property {number} id
+ * @property {string} name
+ * @property {string} type
+ * @property {string} ip_address
+ * @property {string} mac_address
+ * @property {number} version_id
+ * @property {string} address
+ * @property {string} city
+ */
 const manageDevicesPage = window.location.pathname === "/manage-devices";
 if (manageDevicesPage) {
   loadManageDevicesPage();
@@ -30,6 +40,9 @@ async function loadManageDevicesPage() {
     devicesTableBody.innerHTML = "<tr><td colspan=\"6\">Failed to load devices</td></tr>";
   }
 
+  // Add row click handlers
+  addDeviceRowClickHandlers();
+
   // Add device button
   if (addDeviceBtn) {
     addDeviceBtn.addEventListener("click", () => {
@@ -56,7 +69,11 @@ async function loadManageDevicesPage() {
   loadVersions();
 }
 
-function renderDevicesTable(devices) {
+/**
+ * @param {Device[]} devices
+ */
+
+function renderDevicesTable(devices )  {
   const devicesTableBody = document.getElementById("devicesTableBody");
 
   if (!devices.length) {
@@ -64,19 +81,35 @@ function renderDevicesTable(devices) {
     return;
   }
 
-  devicesTableBody.innerHTML = devices.map(device => `
-    <tr>
-      <td>${device.id}</td>
-      <td>${device.name}</td>
-      <td>${device.type}</td>
-      <td>${device.ip_address || 'N/A'}</td>
-      <td>${device.mac_address || 'N/A'}</td>
-      <td>
-        <button class="button small" onclick="editDevice(${device.id})">Edit</button>
-        <button class="button small danger" onclick="deleteDevice(${device.id})">Delete</button>
-      </td>
-    </tr>
-  `).join('');
+ devicesTableBody.innerHTML = devices.map(device => `
+  <tr class="clickable-row" data-device-id="${device.id}">
+    <td>
+      <span class="table-link">${device.id}</span>
+    </td>
+    <td>${device.name}</td>
+    <td>${device.type}</td>
+    <td>${device.ip_address || 'N/A'}</td>
+    <td>${device.mac_address || 'N/A'}</td>
+    <td>
+      <button class="button small" onclick="editDevice(${device.id}); event.stopPropagation();">Edit</button>
+      <button class="button small danger" onclick="deleteDevice(${device.id}); event.stopPropagation();">Delete</button>
+    </td>
+  </tr>
+`).join('');
+}
+
+function addDeviceRowClickHandlers() {
+  const clickableRows = document.querySelectorAll('.clickable-row');
+  clickableRows.forEach(row => {
+    row.addEventListener('click', (event) => {
+      // Don't navigate if clicking on buttons
+      if (event.target.tagName === 'BUTTON') {
+        return;
+      }
+      const deviceId = row.dataset.deviceId;
+      window.location.href = `/devices/${deviceId}`;
+    });
+  });
 }
 
 async function loadDeviceTypes() {
@@ -255,13 +288,13 @@ async function loadManageUsersPage() {
     const data = await res.json();
 
     if (!res.ok) {
-      usersTableBody.innerHTML = "<tr><td colspan=\"4\">Failed to load users</td></tr>";
+      usersTableBody.innerHTML = "<tr><td colspan=\"5\">Failed to load users</td></tr>";
       return;
     }
 
-    renderUsersTable(data || []);
+    renderUsersTable(data.users || []);
   } catch (error) {
-    usersTableBody.innerHTML = "<tr><td colspan=\"4\">Failed to load users</td></tr>";
+    usersTableBody.innerHTML = "<tr><td colspan=\"5\">Failed to load users</td></tr>";
   }
 
   // Add user button
@@ -278,7 +311,7 @@ async function loadManageUsersPage() {
   }
 
   // Modal controls
-  const closeUserModal = document.getElementById("closeUserModal");
+  const closeUserModal = document.getElementById("closeModal");
   if (closeUserModal) {
     closeUserModal.addEventListener("click", () => {
       document.getElementById("userModal").style.display = "none";
@@ -290,7 +323,7 @@ function renderUsersTable(users) {
   const usersTableBody = document.getElementById("usersTableBody");
 
   if (!users.length) {
-    usersTableBody.innerHTML = "<tr><td colspan=\"4\">No users found</td></tr>";
+    usersTableBody.innerHTML = "<tr><td colspan=\"5\">No users found</td></tr>";
     return;
   }
 
@@ -299,6 +332,7 @@ function renderUsersTable(users) {
       <td>${user.id}</td>
       <td>${user.name}</td>
       <td>${user.username}</td>
+      <td>${user.email || 'N/A'}</td>
       <td>
         <button class="button small" onclick="editUser(${user.id})">Edit</button>
         <button class="button small danger" onclick="deleteUser(${user.id})">Delete</button>
@@ -310,13 +344,14 @@ function renderUsersTable(users) {
 function showUserModal(user = null) {
   const modal = document.getElementById("userModal");
   const form = document.getElementById("userForm");
-  const modalTitle = document.getElementById("userModalTitle");
+  const modalTitle = document.getElementById("modalTitle");
 
   if (user) {
     modalTitle.textContent = "Edit User";
     document.getElementById("userId").value = user.id;
     document.getElementById("userName").value = user.name;
     document.getElementById("userUsername").value = user.username;
+    document.getElementById("userEmail").value = user.email || '';
     document.getElementById("userPassword").value = ''; // Don't populate password
   } else {
     modalTitle.textContent = "Add User";
@@ -372,6 +407,7 @@ async function handleUserSubmit(event) {
   const userData = {
     name: formData.get("name"),
     username: formData.get("username"),
+    email: formData.get("email"),
     password: formData.get("password")
   };
 
