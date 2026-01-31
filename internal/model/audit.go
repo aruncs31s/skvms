@@ -4,24 +4,6 @@ import "time"
 
 type DeviceAction uint8
 
-const (
-	ActionCreate DeviceAction = 1 + iota
-	ActionUpdate
-	ActionDelete
-	ActionTurnOn
-	ActionTurnOff
-	ActionConfigure
-)
-
-var DeviceActionsMap map[DeviceAction]string = map[DeviceAction]string{
-	ActionCreate:    "create",
-	ActionUpdate:    "update",
-	ActionDelete:    "delete",
-	ActionTurnOn:    "turn_on",
-	ActionTurnOff:   "turn_off",
-	ActionConfigure: "configure",
-}
-
 type AuditLog struct {
 	ID        uint         `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
 	UserID    uint         `gorm:"column:user_id;index" json:"user_id"`

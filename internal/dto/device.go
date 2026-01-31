@@ -33,7 +33,7 @@ type UpdateDeviceRequest struct {
 }
 
 type DeviceStateView struct {
-	ID        int    `json:"id"`
+	ID        uint   `json:"id"`
 	Name      string `json:"name"`
 	CreatedAt string `json:"created_at"`
 }
@@ -45,3 +45,4 @@ type CreateDeviceStateRequest struct {
 type UpdateDeviceStateRequest struct {
 	Name string `json:"name" binding:"required"`
 }
+

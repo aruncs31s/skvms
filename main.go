@@ -46,16 +46,27 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
 	versionRepo := repository.NewVersionRepository(db)
-	deviceStateRepo := repository.NewDeviceStateRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
-	deviceService := service.NewDeviceService(deviceRepo)
-	readingService := service.NewReadingService(readingRepo)
 	auditService := service.NewAuditService(auditRepo)
+	deviceStateService := service.NewDeviceStateService(
+		repository.NewDeviceStateRepository(
+			db,
+		),
+		deviceRepo,
+		service.NewDeviceStateHistoryService(
+			repository.NewDeviceStateHistoryRepository(db),
+		),
+	)
+	deviceService := service.NewDeviceService(
+		deviceRepo,
+		deviceStateService,
+		auditService,
+	)
+	readingService := service.NewReadingService(readingRepo)
 	userService := service.NewUserService(userRepo)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
-	deviceStateService := service.NewDeviceStateService(deviceStateRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceHandler := httpHandler.NewDeviceHandler(deviceService, auditService)

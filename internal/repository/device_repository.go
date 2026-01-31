@@ -10,9 +10,26 @@ import (
 
 type DeviceRepository interface {
 	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
-	GetDevice(ctx context.Context, id uint) (*model.Device, error)
-	CreateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error
-	UpdateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error
+	GetDeviceForUpdate(
+		ctx context.Context,
+		tx *gorm.DB,
+		id uint) (*model.Device, error)
+	GetDevice(
+		ctx context.Context,
+		id uint,
+	) (*model.Device, error)
+	CreateDevice(
+		ctx context.Context,
+		device *model.Device,
+		details *model.DeviceDetails,
+		address *model.DeviceAddress,
+	) error
+	UpdateDevice(
+		ctx context.Context,
+		device *model.Device,
+		details *model.DeviceDetails,
+		address *model.DeviceAddress,
+	) error
 	DeleteDevice(ctx context.Context, id uint) error
 	FindVersionByVersion(ctx context.Context, version string) (*model.Version, error)
 	FindVersionByID(ctx context.Context, id uint) (*model.Version, error)
@@ -40,10 +57,28 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 	}
 	return devices, nil
 }
+func (r *deviceRepository) GetDeviceForUpdate(
+	ctx context.Context,
+	tx *gorm.DB,
+	id uint,
+) (*model.Device, error) {
+	var device model.Device
+	err := tx.WithContext(ctx).
+		First(&device, id).Error
+	if err != nil {
+		return nil, err
+	}
+	if device.ID == 0 {
+		return nil, nil
+	}
+	return &device, nil
+}
 
 func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Device, error) {
 	var device model.Device
 	err := r.db.WithContext(ctx).
+		Preload("Details").
+		Preload("Address").
 		First(&device, id).
 		Scan(&device).Error
 	if err != nil {

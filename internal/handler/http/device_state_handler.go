@@ -55,7 +55,7 @@ func (h *DeviceStateHandler) GetDeviceState(c *gin.Context) {
 		return
 	}
 
-	deviceState, err := h.deviceStateService.GetByID(c.Request.Context(), id)
+	deviceState, err := h.deviceStateService.GetByID(c.Request.Context(), uint(id))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load device state"})
 		return
@@ -107,7 +107,7 @@ func (h *DeviceStateHandler) UpdateDeviceState(c *gin.Context) {
 		return
 	}
 
-	if err := h.deviceStateService.Update(c.Request.Context(), id, &req); err != nil {
+	if err := h.deviceStateService.Update(c.Request.Context(), uint(id), &req); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update device state"})
 		return
 	}
@@ -128,7 +128,7 @@ func (h *DeviceStateHandler) DeleteDeviceState(c *gin.Context) {
 		return
 	}
 
-	if err := h.deviceStateService.Delete(c.Request.Context(), id); err != nil {
+	if err := h.deviceStateService.Delete(c.Request.Context(), uint(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete device state"})
 		return
 	}

@@ -19,56 +19,105 @@ type DeviceService interface {
 	) (*model.Device, error)
 	ControlDevice(
 		ctx context.Context,
-		id,
+		id uint,
 		action uint,
-	) (string, error)
+	) (dto.DeviceControlResponse, error)
 	CreateDevice(ctx context.Context, req *dto.CreateDeviceRequest) error
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
 	DeleteDevice(ctx context.Context, id uint) error
 }
 
 type deviceService struct {
-	repo repository.DeviceRepository
+	repo             repository.DeviceRepository
+	auditService     AuditService
+	stateMgmtService DeviceStateService
 }
 
-func NewDeviceService(repo repository.DeviceRepository) DeviceService {
-	return &deviceService{repo: repo}
+func NewDeviceService(
+	repo repository.DeviceRepository,
+	stateMgmtService DeviceStateService,
+	auditService AuditService,
+) DeviceService {
+	return &deviceService{
+		repo:             repo,
+		stateMgmtService: stateMgmtService,
+		auditService:     auditService,
+	}
 }
 
 func (s *deviceService) ListDevices(ctx context.Context) ([]dto.DeviceView, error) {
 	return s.repo.ListDevices(ctx)
 }
 
-func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
-	return s.repo.GetDevice(ctx, id)
+func (s *deviceService) GetDevice(ctx context.Context, id uint) (*model.Device, error) {
+	device, err := s.repo.GetDevice(ctx, id)
+	if device == nil || err != nil {
+		return nil, err
+	}
+	return device, nil
 }
 
+// ControlDevice means , changing a state like turning on/off a selected device.-
 func (s *deviceService) ControlDevice(
 	ctx context.Context,
 	id uint,
 	action uint,
-) (string, error) {
+) (dto.DeviceControlResponse, error) {
 	device, err := s.repo.GetDevice(ctx, id)
 	if err != nil {
-		return "", err
+		return dto.DeviceControlResponse{}, err
 	}
 	if device == nil {
-		return "", nil
+		return dto.DeviceControlResponse{}, nil
 	}
 
-	a, ok := model.DeviceActionsMap[model.DeviceAction(action)]
-	if !ok {
-		return "", fmt.Errorf("invalid action")
+	requestedAction := model.DeviceAction(action)
+
+	if !requestedAction.Validate() {
+		return dto.DeviceControlResponse{}, fmt.Errorf("invalid action")
 	}
 
-	return fmt.Sprintf("Device %s (%d) command accepted: %s", device.Name, device.ID, command), nil
+	// Check if the action is allowed for the current state
+	allowedActions, stateExists := model.DeviceStateTransitions[device.CurrentState]
+	if !stateExists {
+		return dto.DeviceControlResponse{}, fmt.Errorf("unknown device state: %d", device.CurrentState)
+	}
+
+	// Check if the requested action is in the allowed actions for this state
+	actionAllowed := false
+	for _, allowedAction := range allowedActions {
+		if allowedAction == requestedAction {
+			actionAllowed = true
+			break
+		}
+	}
+
+	if !actionAllowed {
+		actionName, _ := model.DeviceActionsMap[requestedAction]
+		return dto.DeviceControlResponse{}, fmt.Errorf("action '%s' is not allowed for current state (state ID: %d)", actionName, device.CurrentState)
+	}
+
+	// Update the device state based on the action
+	newState, err := s.stateMgmtService.Actuate(
+		ctx,
+		device.ID,
+		requestedAction,
+	)
+	if err != nil {
+		return dto.DeviceControlResponse{}, err
+	}
+
+	return dto.DeviceControlResponse{
+		Device: device.Name,
+		State:  newState,
+	}, nil
 }
 
 func (s *deviceService) CreateDevice(ctx context.Context, req *dto.CreateDeviceRequest) error {
 	device := &model.Device{
-		Name:      req.Name,
-		Type:      req.Type,
-		VersionID: req.FirmwareVersionID,
+		Name:         req.Name,
+		DeviceTypeID: req.Type,
+		VersionID:    req.FirmwareVersionID,
 	}
 	details := &model.DeviceDetails{
 		IPAddress:       req.IPAddress,
@@ -92,9 +141,9 @@ func (s *deviceService) CreateDevice(ctx context.Context, req *dto.CreateDeviceR
 
 func (s *deviceService) UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error {
 	device := &model.Device{
-		ID:   id,
-		Name: req.Name,
-		Type: req.Type,
+		ID:           id,
+		Name:         req.Name,
+		DeviceTypeID: req.Type,
 	}
 	details := &model.DeviceDetails{
 		DeviceID:        id,

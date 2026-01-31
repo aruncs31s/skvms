@@ -87,7 +87,7 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "command failed"})
 		return
 	}
-	if message == "" {
+	if message.State == "" {
 		c.JSON(http.StatusNotFound, gin.H{"error": "device not found"})
 		return
 	}
@@ -100,7 +100,7 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 		userID.(uint),
 		username.(string),
 		"device_control",
-		message,
+		message.State,
 		c.ClientIP(),
 		uint(id),
 	)

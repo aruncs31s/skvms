@@ -40,3 +40,8 @@ func NewValidationError(field, message string) *ValidationError {
 		Message: message,
 	}
 }
+
+type DeviceControlResponse struct {
+	Device string `json:"device"`
+	State  string `json:"state"`
+}

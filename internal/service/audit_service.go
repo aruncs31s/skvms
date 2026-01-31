@@ -37,10 +37,18 @@ func (s *auditService) Log(
 	details,
 	ipAddress string,
 ) error {
+	// Find action ID from string
+	var actionID model.DeviceAction
+	for id, name := range model.DeviceActionsMap {
+		if name == action {
+			actionID = id
+			break
+		}
+	}
 	log := &model.AuditLog{
 		UserID:    userID,
 		Username:  username,
-		Action:    action,
+		Action:    actionID,
 		Details:   details,
 		IPAddress: ipAddress,
 	}
@@ -55,10 +63,18 @@ func (s *auditService) LogDeviceAction(
 	ipAddress string,
 	deviceID uint,
 ) error {
+	// Find action ID from string
+	var actionID model.DeviceAction
+	for id, name := range model.DeviceActionsMap {
+		if name == action {
+			actionID = id
+			break
+		}
+	}
 	log := &model.AuditLog{
 		UserID:    userID,
 		Username:  username,
-		Action:    action,
+		Action:    actionID,
 		Details:   details,
 		IPAddress: ipAddress,
 		DeviceID:  &deviceID,

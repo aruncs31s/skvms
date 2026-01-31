@@ -28,6 +28,12 @@ func Seed(db *gorm.DB) error {
 	if err := seedReadings(db); err != nil {
 		return err
 	}
+	if err := seedDeviceStateHistory(db); err != nil {
+		return err
+	}
+	if err := seedAuditLogs(db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -98,6 +104,44 @@ func seedDeviceTypes(db *gorm.DB) error {
 			model.DeviceTypes{Name: dt.Name},
 			dt,
 		).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+/* ---------------- Device States ---------------- */
+
+func seedDeviceStates(db *gorm.DB) error {
+	deviceStates := []model.DeviceState{
+		{
+			ID:   1,
+			Name: "Active",
+		},
+		{
+			ID:   2,
+			Name: "Inactive",
+		},
+		{
+			ID:   3,
+			Name: "Maintenance",
+		},
+		{
+			ID:   4,
+			Name: "Decommissioned",
+		},
+	}
+
+	for _, ds := range deviceStates {
+		var existing model.DeviceState
+		err := db.Where("id = ?", ds.ID).First(&existing).Error
+		if err == gorm.ErrRecordNotFound {
+			// Create new record with explicit ID
+			if err := db.Exec("INSERT INTO device_states (id, name, device_type_id, created_at) VALUES (?, ?, ?, ?)",
+				ds.ID, ds.Name, 0, time.Now()).Error; err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
 	}
@@ -231,12 +275,12 @@ func seedDevices(db *gorm.DB) error {
 
 		err := db.Transaction(func(tx *gorm.DB) error {
 			device := model.Device{
-				Name:      data.Name,
-				Type:      dt.ID,
-				VersionID: version.ID,
-				State:     1, // Active
-				CreatedBy: 1,
-				UpdatedBy: 1,
+				Name:         data.Name,
+				DeviceTypeID: dt.ID,
+				VersionID:    version.ID,
+				CurrentState: 1, // Active
+				CreatedBy:    1,
+				UpdatedBy:    1,
 			}
 			if err := tx.Create(&device).Error; err != nil {
 				return err
@@ -302,5 +346,184 @@ func seedReadings(db *gorm.DB) error {
 			}
 		}
 	}
+	return nil
+}
+
+/* ---------------- Device State History ---------------- */
+
+func seedDeviceStateHistory(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&model.DeviceStateHistory{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	var deviceIDs []uint
+	if err := db.Model(&model.Device{}).Pluck("id", &deviceIDs).Error; err != nil {
+		return err
+	}
+
+	now := time.Now()
+	// Create some state history for first few devices
+	for i, deviceID := range deviceIDs {
+		if i >= 5 { // Only for first 5 devices
+			break
+		}
+
+		// Each device has some state transitions
+		histories := []model.DeviceStateHistory{
+			{
+				DeviceID:     deviceID,
+				CausedAction: model.ActionCreate,
+				StateID:      1, // Active
+				CreatedAt:    now.Add(-72 * time.Hour),
+			},
+			{
+				DeviceID:     deviceID,
+				CausedAction: model.ActionTurnOff,
+				StateID:      2, // Inactive
+				CreatedAt:    now.Add(-48 * time.Hour),
+			},
+			{
+				DeviceID:     deviceID,
+				CausedAction: model.ActionTurnOn,
+				StateID:      1, // Active
+				CreatedAt:    now.Add(-24 * time.Hour),
+			},
+		}
+
+		// Add extra history for some devices
+		if i%2 == 0 {
+			histories = append(histories, []model.DeviceStateHistory{
+				{
+					DeviceID:     deviceID,
+					CausedAction: model.ActionConfigure,
+					StateID:      1, // Stay Active
+					CreatedAt:    now.Add(-12 * time.Hour),
+				},
+				{
+					DeviceID:     deviceID,
+					CausedAction: model.ActionTurnOff,
+					StateID:      2, // Inactive
+					CreatedAt:    now.Add(-6 * time.Hour),
+				},
+				{
+					DeviceID:     deviceID,
+					CausedAction: model.ActionTurnOn,
+					StateID:      1, // Active
+					CreatedAt:    now.Add(-2 * time.Hour),
+				},
+			}...)
+		}
+
+		for _, history := range histories {
+			if err := db.Create(&history).Error; err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+/* ---------------- Audit Logs ---------------- */
+
+func seedAuditLogs(db *gorm.DB) error {
+	var count int64
+	if err := db.Model(&model.AuditLog{}).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+
+	var deviceIDs []uint
+	if err := db.Model(&model.Device{}).Limit(5).Pluck("id", &deviceIDs).Error; err != nil {
+		return err
+	}
+
+	now := time.Now()
+
+	// Admin login logs
+	loginLogs := []model.AuditLog{
+		{
+			UserID:    1,
+			Username:  "admin",
+			Action:    model.ActionCreate,
+			Details:   "User logged in",
+			IPAddress: "192.168.1.50",
+			CreatedAt: now.Add(-72 * time.Hour),
+		},
+		{
+			UserID:    1,
+			Username:  "admin",
+			Action:    model.ActionCreate,
+			Details:   "User logged in",
+			IPAddress: "192.168.1.50",
+			CreatedAt: now.Add(-48 * time.Hour),
+		},
+		{
+			UserID:    1,
+			Username:  "admin",
+			Action:    model.ActionCreate,
+			Details:   "User logged in",
+			IPAddress: "192.168.1.50",
+			CreatedAt: now.Add(-24 * time.Hour),
+		},
+		{
+			UserID:    1,
+			Username:  "admin",
+			Action:    model.ActionCreate,
+			Details:   "User logged in",
+			IPAddress: "192.168.1.50",
+			CreatedAt: now.Add(-2 * time.Hour),
+		},
+	}
+
+	for _, log := range loginLogs {
+		if err := db.Create(&log).Error; err != nil {
+			return err
+		}
+	}
+
+	// Device action logs
+	actions := []struct {
+		action  model.DeviceAction
+		details string
+		hours   int
+	}{
+		{model.ActionCreate, "Device created", 72},
+		{model.ActionTurnOff, "Device turned off", 48},
+		{model.ActionTurnOn, "Device turned on", 24},
+		{model.ActionConfigure, "Device configured", 12},
+		{model.ActionUpdate, "Device settings updated", 6},
+	}
+
+	for i, deviceID := range deviceIDs {
+		for j, action := range actions {
+			// Skip some actions for variety
+			if (i+j)%3 == 0 {
+				continue
+			}
+
+			devID := deviceID
+			auditLog := model.AuditLog{
+				UserID:    1,
+				Username:  "admin",
+				Action:    action.action,
+				Details:   action.details,
+				IPAddress: "192.168.1.50",
+				DeviceID:  &devID,
+				CreatedAt: now.Add(-time.Duration(action.hours) * time.Hour),
+			}
+
+			if err := db.Create(&auditLog).Error; err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
