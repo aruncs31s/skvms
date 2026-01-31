@@ -3,10 +3,21 @@ let deviceId = null;
 let voltageChart = null;
 let autoRefreshInterval = null;
 
-// Initialize on page load
-document.addEventListener("DOMContentLoaded", () => {
-  loadNavbar();
-  checkAuth();
+// Wait for all dependencies to load
+function initializeDashboard() {
+  console.log('Initializing dashboard...');
+  console.log('getToken function available:', typeof getToken === 'function');
+  console.log('updateAuthUI function available:', typeof updateAuthUI === 'function');
+
+  // Update auth UI
+  if (typeof updateAuthUI === 'function') {
+    updateAuthUI();
+  }
+
+  // Check auth status
+  const token = getToken();
+  const user = getUser ? getUser() : null;
+  console.log('Auth status - Token:', token ? 'present' : 'missing', 'User:', user ? user.name : 'none');
 
   // Get device ID from URL
   const path = window.location.pathname;
@@ -25,9 +36,26 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   setupEventListeners();
-});
+}
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeDashboard);
+} else {
+  initializeDashboard();
+}
 
 function setupEventListeners() {
+  // Logout button
+  const logoutBtn = document.getElementById("logoutBtn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      if (typeof clearToken === 'function') clearToken();
+      if (typeof clearUser === 'function') clearUser();
+      window.location.href = "/";
+    });
+  }
+
   // Control buttons
   document.getElementById("btnTurnOn")?.addEventListener("click", () => controlDevice(4));
   document.getElementById("btnTurnOff")?.addEventListener("click", () => controlDevice(5));
@@ -119,7 +147,8 @@ function updateControlButtons(currentState) {
 }
 
 async function controlDevice(action) {
-  const token = localStorage.getItem("token");
+  const token = getToken();
+  console.log('Token retrieved:', token ? 'present' : 'missing');
   if (!token) {
     showMessage("Please login to control devices", "error");
     return;

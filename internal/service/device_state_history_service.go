@@ -28,7 +28,9 @@ type deviceStateHistoryService struct {
 func NewDeviceStateHistoryService(
 	repo repository.DeviceStateHistoryRepository,
 ) DeviceStateHistoryService {
-	return &deviceStateHistoryService{}
+	return &deviceStateHistoryService{
+		repo: repo,
+	}
 }
 func (s *deviceStateHistoryService) Log(
 	ctx context.Context,

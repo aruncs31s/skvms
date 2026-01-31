@@ -10,6 +10,7 @@ type DeviceView struct {
 	VersionID       uint   `json:"version_id"`
 	Address         string `json:"address"`
 	City            string `json:"city"`
+	DeviceState     uint   `json:"device_state"`
 }
 
 type CreateDeviceRequest struct {

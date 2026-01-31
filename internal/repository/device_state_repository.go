@@ -93,7 +93,7 @@ func (r *deviceStateRepository) UpdateDeviceState(
 	return tx.WithContext(ctx).
 		Model(&model.Device{}).
 		Where("id = ?", deviceID).
-		Update("state_id", stateID).Error
+		Update("device_state", stateID).Error
 }
 
 func (r *deviceStateRepository) InsertStateHistory(

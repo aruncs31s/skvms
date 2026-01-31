@@ -58,8 +58,8 @@ function renderDevices(devices) {
           </div>
         </div>
         <div class="device-actions">
-          <a href="/devices/${device.id}" class="button small">View Details</a>
-          ${token ? `<button class="button small secondary control-btn" data-device-id="${device.id}">Control</button>` : ''}
+          <a href="/devices/${device.id}" class="button small">Dashboard</a>
+          ${token ? `<button class="button small secondary control-btn" data-device-id="${device.id}">Quick Control</button>` : ''}
         </div>
       </div>
     `

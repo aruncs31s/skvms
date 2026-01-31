@@ -65,7 +65,21 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"device": device})
+	// Convert to DeviceView DTO for proper JSON response
+	deviceView := dto.DeviceView{
+		ID:              device.ID,
+		Name:            device.Name,
+		Type:            device.DeviceType.Name,
+		IPAddress:       device.Details.IPAddress,
+		MACAddress:      device.Details.MACAddress,
+		FirmwareVersion: device.Details.FirmwareVersion,
+		VersionID:       device.VersionID,
+		Address:         device.Address.Address,
+		City:            device.Address.City,
+		DeviceState:     device.CurrentState,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"device": deviceView})
 }
 
 func (h *DeviceHandler) ControlDevice(c *gin.Context) {

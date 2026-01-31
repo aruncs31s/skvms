@@ -90,6 +90,9 @@ func main() {
 		c.File("./static/login.html")
 	})
 	router.GET("/devices/:id", func(c *gin.Context) {
+		c.File("./static/device-dashboard.html")
+	})
+	router.GET("/devices/:id/readings", func(c *gin.Context) {
 		c.File("./static/device.html")
 	})
 	router.GET("/all-readings", func(c *gin.Context) {

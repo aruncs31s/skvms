@@ -256,19 +256,15 @@
           <h3>Device Control</h3>
           <div class="control-buttons">
             <button class="control-btn power-on" id="btnTurnOn" data-action="4">
-              <span>⚡</span>
               <span>Turn On</span>
             </button>
             <button class="control-btn power-off" id="btnTurnOff" data-action="5">
-              <span>🔴</span>
               <span>Turn Off</span>
             </button>
             <button class="control-btn configure" id="btnConfigure" data-action="6">
-              <span>⚙️</span>
               <span>Configure</span>
             </button>
             <button class="control-btn refresh" id="btnRefresh">
-              <span>🔄</span>
               <span>Refresh</span>
             </button>
           </div>
@@ -395,8 +391,37 @@
       </section>
     </div>
 
-    <script src="/static/navbar.js"></script>
     <script src="/static/auth.js"></script>
-    <script src="/static/device-dashboard.js"></script>
+    <script src="/static/navbar.js"></script>
+    <script>
+      // Wait for all dependencies to load before initializing dashboard
+      let scriptsLoaded = 0;
+      const totalScripts = 2;
+
+      function checkScriptsLoaded() {
+        scriptsLoaded++;
+        if (scriptsLoaded === totalScripts) {
+          // Load dashboard script after dependencies
+          const script = document.createElement('script');
+          script.src = '/static/device-dashboard.js';
+          document.body.appendChild(script);
+        }
+      }
+
+      // Check if scripts are already loaded
+      if (typeof getToken === 'function' && typeof updateAuthUI === 'function') {
+        checkScriptsLoaded();
+        checkScriptsLoaded();
+      } else {
+        // Wait for them to load
+        const checkInterval = setInterval(() => {
+          if (typeof getToken === 'function' && typeof updateAuthUI === 'function') {
+            clearInterval(checkInterval);
+            checkScriptsLoaded();
+            checkScriptsLoaded();
+          }
+        }, 50);
+      }
+    </script>
   </body>
 </html>
