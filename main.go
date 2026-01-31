@@ -63,6 +63,9 @@ func main() {
 	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
 	versionHandler := httpHandler.NewVersionHandler(versionService)
 
+	// Initialize audit middleware
+	auditMiddleware := middleware.NewAuditMiddleware(auditService, cfg.JWTSecret)
+
 	router := gin.Default()
 
 	router.Static("/static", "./static")
@@ -97,7 +100,7 @@ func main() {
 		api.GET("/devices/:id/readings/range", readingHandler.ListByDateRange)
 		api.POST("/devices/:id/control", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.ControlDevice)
 		api.POST("/devices", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.CreateDevice)
-		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.UpdateDevice)
+		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), auditMiddleware.Audit("device_update"), deviceHandler.UpdateDevice)
 		api.DELETE("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.DeleteDevice)
 		api.GET("/device-types", deviceTypesHandler.ListDeviceTypes)
 		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
