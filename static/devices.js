@@ -1,5 +1,11 @@
 // devices.js - Device listing and individual device page functionality
 
+const getDeviceIdFromPath = () => {
+  const match = window.location.pathname.match(/^\/devices\/(\d+)$/);
+  if (!match) return null;
+  return match[1];
+};
+
 const deviceList = document.getElementById("deviceList");
 if (deviceList) {
   loadDevices();
@@ -9,12 +15,6 @@ const deviceId = getDeviceIdFromPath();
 if (deviceId) {
   loadDevicePage(deviceId);
 }
-
-const getDeviceIdFromPath = () => {
-  const match = window.location.pathname.match(/^\/devices\/(\d+)$/);
-  if (!match) return null;
-  return match[1];
-};
 
 async function loadDevices() {
   deviceList.innerHTML = "<p class=\"muted\">Loading devices...</p>";
@@ -89,13 +89,14 @@ function renderDevices(devices) {
 async function loadDevicePage(deviceId) {
   try {
     const res = await fetch(`/api/devices/${deviceId}`);
-    const device = await res.json();
+    const data = await res.json();
     if (!res.ok) {
       document.getElementById("deviceTitle").textContent = "Device not found";
       document.getElementById("deviceMeta").innerHTML = "<p class=\"muted\">Failed to load device details.</p>";
       return;
     }
 
+    const device = data.device;
     document.getElementById("deviceTitle").textContent = device.name;
     document.getElementById("deviceMeta").innerHTML = `
       <div class="meta-grid">
@@ -343,6 +344,73 @@ const initDevices = () => {
       }
     });
   }
+
+  // Edit device modal functionality
+  const editDeviceBtn = document.getElementById("editDeviceBtn");
+  const editDeviceModal = document.getElementById("editDeviceModal");
+  const closeEditDeviceModal = document.getElementById("closeEditDeviceModal");
+  const cancelEditDeviceBtn = document.getElementById("cancelEditDeviceBtn");
+  const editDeviceForm = document.getElementById("editDeviceForm");
+
+  if (editDeviceBtn) {
+    editDeviceBtn.addEventListener("click", async () => {
+      const token = getToken();
+      if (!token) {
+        alert("Please login first");
+        return;
+      }
+
+      const deviceId = getDeviceIdFromPath();
+      if (!deviceId) {
+        alert("Device ID not found");
+        return;
+      }
+
+      try {
+        // Fetch current device data
+        const res = await fetch(`/api/devices/${deviceId}`);
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Failed to load device");
+          return;
+        }
+        openEditDeviceModal(data.device);
+      } catch (error) {
+        alert("Failed to load device");
+      }
+    });
+  }
+
+  if (closeEditDeviceModal) {
+    closeEditDeviceModal.addEventListener("click", () => {
+      editDeviceModal.style.display = "none";
+    });
+  }
+
+  if (cancelEditDeviceBtn) {
+    cancelEditDeviceBtn.addEventListener("click", () => {
+      editDeviceModal.style.display = "none";
+    });
+  }
+
+  if (editDeviceForm) {
+    editDeviceForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const deviceId = getDeviceIdFromPath();
+      if (deviceId) {
+        await updateDevice(deviceId);
+      }
+    });
+  }
+
+  // Close edit modal when clicking outside
+  if (editDeviceModal) {
+    editDeviceModal.addEventListener("click", (e) => {
+      if (e.target === editDeviceModal) {
+        editDeviceModal.style.display = "none";
+      }
+    });
+  }
 };
 
 // Version modal functions
@@ -454,5 +522,138 @@ async function createVersion() {
     document.getElementById("versionModal").style.display = "none";
   } catch (error) {
     alert("Failed to create version");
+  }
+}
+
+// Edit Device Modal Functions
+function openEditDeviceModal(device) {
+  const modal = document.getElementById("editDeviceModal");
+  const form = document.getElementById("editDeviceForm");
+
+  // Populate form with current device data
+  document.getElementById("editDeviceName").value = device.name || "";
+  document.getElementById("editDeviceIP").value = device.ip_address || "";
+  document.getElementById("editDeviceMAC").value = device.mac_address || "";
+  document.getElementById("editDeviceFirmware").value = device.firmware_version || "";
+  document.getElementById("editDeviceAddress").value = device.address || "";
+  document.getElementById("editDeviceCity").value = device.city || "";
+
+  // Load device types and versions
+  loadDeviceTypesForEdit(device.type);
+  loadVersionsForEdit(device.firmware_version);
+
+  modal.style.display = "flex";
+}
+
+async function loadDeviceTypesForEdit(currentType) {
+  const select = document.getElementById("editDeviceType");
+  select.innerHTML = '<option value="">Loading types...</option>';
+
+  try {
+    const res = await fetch("/api/device-types");
+    const data = await res.json();
+
+    if (!res.ok) {
+      select.innerHTML = '<option value="">Failed to load types</option>';
+      return;
+    }
+
+    const types = data.device_types || [];
+    if (!Array.isArray(types)) {
+      select.innerHTML = '<option value="">Invalid response format</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Select device type</option>';
+    types.forEach(type => {
+      const option = document.createElement("option");
+      option.value = type.id;
+      option.textContent = type.name;
+      if (type.name === currentType) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Failed to load device types:", error);
+    select.innerHTML = '<option value="">Failed to load types</option>';
+  }
+}
+
+async function loadVersionsForEdit(currentVersion) {
+  const select = document.getElementById("editDeviceFirmware");
+  select.innerHTML = '<option value="">Loading versions...</option>';
+
+  try {
+    const res = await fetch("/api/versions");
+    const data = await res.json();
+
+    if (!res.ok) {
+      select.innerHTML = '<option value="">Failed to load versions</option>';
+      return;
+    }
+
+    const versions = data.versions || [];
+    if (!Array.isArray(versions)) {
+      select.innerHTML = '<option value="">Invalid response format</option>';
+      return;
+    }
+
+    select.innerHTML = '<option value="">Select firmware version</option>';
+    versions.forEach(version => {
+      const option = document.createElement("option");
+      option.value = version.version;
+      option.textContent = version.version;
+      if (version.version === currentVersion) {
+        option.selected = true;
+      }
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Failed to load versions:", error);
+    select.innerHTML = '<option value="">Failed to load versions</option>';
+  }
+}
+
+async function updateDevice(deviceId) {
+  const token = getToken();
+  if (!token) {
+    alert("Please login first");
+    return;
+  }
+
+  const payload = {
+    name: document.getElementById("editDeviceName").value,
+    type: parseInt(document.getElementById("editDeviceType").value),
+    ip_address: document.getElementById("editDeviceIP").value,
+    mac_address: document.getElementById("editDeviceMAC").value,
+    firmware_version: document.getElementById("editDeviceFirmware").value,
+    address: document.getElementById("editDeviceAddress").value,
+    city: document.getElementById("editDeviceCity").value,
+  };
+
+  try {
+    const res = await fetch(`/api/devices/${deviceId}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || "Failed to update device");
+      return;
+    }
+
+    alert("Device updated successfully!");
+    document.getElementById("editDeviceModal").style.display = "none";
+
+    // Refresh the page to show updated device info
+    window.location.reload();
+  } catch (error) {
+    alert("Failed to update device");
   }
 }

@@ -87,7 +87,7 @@ async function loadDeviceTypes() {
       const deviceTypeSelect = document.getElementById("deviceType");
       if (deviceTypeSelect) {
         deviceTypeSelect.innerHTML = '<option value="">Select device type</option>' +
-          data.map(type => `<option value="${type.name}">${type.name}</option>`).join('');
+          (data.device_types || []).map(type => `<option value="${type.id}">${type.name}</option>`).join('');
       }
     }
   } catch (error) {

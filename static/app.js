@@ -14,12 +14,14 @@ document.addEventListener('DOMContentLoaded', function() {
   ];
 
   let loadedCount = 0;
+  let loadedModules = {};
 
   modules.forEach(module => {
     const script = document.createElement('script');
     script.src = `/static/${module}`;
     script.onload = function() {
       loadedCount++;
+      loadedModules[module] = true;
       if (loadedCount === modules.length) {
         // All modules loaded, initialize
         initializeApp();
@@ -33,11 +35,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-  // Initialize auth UI
-  updateAuthUI();
+  // Wait a bit for functions to be available
+  setTimeout(() => {
+    // Initialize auth UI
+    if (typeof updateAuthUI === 'function') {
+      updateAuthUI();
+    }
 
-  // Initialize page-specific functionality
-  if (typeof initAuth === 'function') initAuth();
-  if (typeof initDevices === 'function') initDevices();
-  if (typeof initManagement === 'function') initManagement();
+    // Initialize page-specific functionality
+    if (typeof initAuth === 'function') initAuth();
+    if (typeof initDevices === 'function') initDevices();
+    if (typeof initManagement === 'function') initManagement();
+  }, 100);
 }
