@@ -43,36 +43,38 @@
           <button class="modal-close" id="closeModal">&times;</button>
         </div>
         <form id="deviceForm" class="form">
-          <input type="hidden" id="deviceId" />
+          <input type="hidden" id="deviceId" name="deviceId" />
           <label>
             Name
-            <input type="text" id="deviceName" required />
+            <input type="text" id="deviceName" name="name" required />
           </label>
           <label>
             Type
-            <select id="deviceType" required>
+            <select id="deviceType" name="type" required>
               <option value="">Select device type</option>
             </select>
           </label>
           <label>
             IP Address
-            <input type="text" id="deviceIP" />
+            <input type="text" id="deviceIP" name="ip_address" />
           </label>
           <label>
             MAC Address
-            <input type="text" id="deviceMAC" />
+            <input type="text" id="deviceMAC" name="mac_address" />
           </label>
           <label>
             Firmware Version
-            <input type="text" id="deviceFirmware" />
+            <select id="deviceFirmware" name="firmware_version_id" required>
+              <option value="">Select firmware version</option>
+            </select>
           </label>
           <label>
             Address
-            <input type="text" id="deviceAddress" />
+            <input type="text" id="deviceAddress" name="address" />
           </label>
           <label>
             City
-            <input type="text" id="deviceCity" />
+            <input type="text" id="deviceCity" name="city" />
           </label>
           <button class="button" type="submit">Save</button>
         </form>

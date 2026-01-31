@@ -1,12 +1,15 @@
 package model
 
+import "time"
+
 // Our software has versioning and this will
 // help to keep which device is which
 type Version struct {
-	ID      uint   `gorm:"primaryKey"`
-	Version string `gorm:"unique;not null"`
-
-	Features []Feature `gorm:"foreignKey:VersionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ID        uint      `json:"ID" gorm:"column:id;primaryKey;autoIncrement"`
+	Version   string    `json:"Version" gorm:"column:version;unique;not null"`
+	CreatedAt time.Time `json:"CreatedAt"`
+	UpdatedAt time.Time `json:"UpdatedAt"`
+	Features  []Feature `json:"Features" gorm:"foreignKey:VersionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 }
 
 func (Version) TableName() string {
@@ -16,10 +19,10 @@ func (Version) TableName() string {
 // A version can have multiple features
 // Also all features are backwards compatible
 type Feature struct {
-	ID          uint   `gorm:"primaryKey"`
-	VersionID   uint   `gorm:"not null;index"`
-	FeatureName string `gorm:"unique;not null"`
-	Enabled     bool   `gorm:"not null;default:false"`
+	ID          uint   `json:"ID" gorm:"column:id;primaryKey;autoIncrement"`
+	VersionID   uint   `json:"VersionID" gorm:"column:version_id;not null;index"`
+	FeatureName string `json:"FeatureName" gorm:"column:feature_name;unique;not null"`
+	Enabled     bool   `json:"Enabled" gorm:"column:enabled;not null;default:false"`
 }
 
 func (Feature) TableName() string {

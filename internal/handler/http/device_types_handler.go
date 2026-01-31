@@ -3,6 +3,7 @@ package http
 import (
 	"strconv"
 
+	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -34,6 +35,9 @@ func (h *deviceTypesHandler) ListDeviceTypes(c *gin.Context) {
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to load device types"})
 		return
+	}
+	if types == nil {
+		types = []dto.GenericDropdown{}
 	}
 	c.JSON(200, gin.H{"device_types": types})
 }

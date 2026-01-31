@@ -53,6 +53,7 @@ async function loadManageDevicesPage() {
 
   // Load device types
   loadDeviceTypes();
+  loadVersions();
 }
 
 function renderDevicesTable(devices) {
@@ -84,14 +85,61 @@ async function loadDeviceTypes() {
     const data = await res.json();
 
     if (res.ok) {
+      let deviceTypes = data.device_types || [];
+      // Fallback if no device types from API
+      if (deviceTypes.length === 0) {
+        deviceTypes = [
+          {id: 1, name: "volt-current-meter"},
+          {id: 2, name: "smart-switch"},
+          {id: 3, name: "sensor-node"},
+          {id: 4, name: "temperature-sensor"},
+          {id: 5, name: "humidity-sensor"},
+          {id: 6, name: "motion-detector"},
+          {id: 7, name: "relay-module"},
+          {id: 8, name: "power-monitor"},
+          {id: 9, name: "energy-meter"}
+        ];
+      }
       const deviceTypeSelect = document.getElementById("deviceType");
       if (deviceTypeSelect) {
         deviceTypeSelect.innerHTML = '<option value="">Select device type</option>' +
-          (data.device_types || []).map(type => `<option value="${type.id}">${type.name}</option>`).join('');
+          deviceTypes.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
       }
     }
   } catch (error) {
     console.error("Failed to load device types:", error);
+    // Fallback on error
+    const deviceTypeSelect = document.getElementById("deviceType");
+    if (deviceTypeSelect) {
+      deviceTypeSelect.innerHTML = '<option value="">Select device type</option>' +
+        '<option value="1">volt-current-meter</option>' +
+        '<option value="2">smart-switch</option>' +
+        '<option value="3">sensor-node</option>' +
+        '<option value="4">temperature-sensor</option>' +
+        '<option value="5">humidity-sensor</option>' +
+        '<option value="6">motion-detector</option>' +
+        '<option value="7">relay-module</option>' +
+        '<option value="8">power-monitor</option>' +
+        '<option value="9">energy-meter</option>';
+    }
+  }
+}
+
+async function loadVersions() {
+  try {
+    const res = await fetch("/api/versions");
+    const data = await res.json();
+
+    if (res.ok) {
+      const versions = data.versions || [];
+      const deviceFirmwareSelect = document.getElementById("deviceFirmware");
+      if (deviceFirmwareSelect) {
+        deviceFirmwareSelect.innerHTML = '<option value="">Select firmware version</option>' +
+          versions.map(version => `<option value="${version.ID}">${version.Version}</option>`).join('');
+      }
+    }
+  } catch (error) {
+    console.error("Failed to load versions:", error);
   }
 }
 
@@ -107,7 +155,7 @@ function showDeviceModal(device = null) {
     document.getElementById("deviceType").value = device.type;
     document.getElementById("deviceIP").value = device.ip_address || '';
     document.getElementById("deviceMAC").value = device.mac_address || '';
-    document.getElementById("deviceFirmware").value = device.firmware_version || '';
+    document.getElementById("deviceFirmware").value = device.version_id || '';
     document.getElementById("deviceAddress").value = device.address || '';
     document.getElementById("deviceCity").value = device.city || '';
   } else {
@@ -159,10 +207,10 @@ async function handleDeviceSubmit(event) {
   const formData = new FormData(event.target);
   const deviceData = {
     name: formData.get("name"),
-    type: formData.get("type"),
+    type: parseInt(formData.get("type")) || 0,
     ip_address: formData.get("ip_address"),
     mac_address: formData.get("mac_address"),
-    firmware_version: formData.get("firmware_version"),
+    firmware_version_id: parseInt(formData.get("firmware_version_id")) || 0,
     address: formData.get("address"),
     city: formData.get("city")
   };

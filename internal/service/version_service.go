@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
 )
 
 type VersionService interface {
 	CreateVersion(ctx context.Context, version string) (*model.Version, error)
-	GetAllVersions(ctx context.Context) ([]model.Version, error)
+	GetAllVersions(ctx context.Context) ([]dto.VersionResponse, error)
 	GetVersionByID(ctx context.Context, id uint) (*model.Version, error)
 	UpdateVersion(ctx context.Context, id uint, version string) (*model.Version, error)
 	DeleteVersion(ctx context.Context, id uint) error
@@ -41,8 +42,32 @@ func (s *versionService) CreateVersion(ctx context.Context, version string) (*mo
 	return v, nil
 }
 
-func (s *versionService) GetAllVersions(ctx context.Context) ([]model.Version, error) {
-	return s.repo.GetAllVersions(ctx)
+func (s *versionService) GetAllVersions(ctx context.Context) ([]dto.VersionResponse, error) {
+	versions, err := s.repo.GetAllVersions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var responses []dto.VersionResponse
+	for _, v := range versions {
+		var features []dto.FeatureResponse
+		for _, f := range v.Features {
+			features = append(features, dto.FeatureResponse{
+				ID:          f.ID,
+				VersionID:   f.VersionID,
+				FeatureName: f.FeatureName,
+				Enabled:     f.Enabled,
+			})
+		}
+		responses = append(responses, dto.VersionResponse{
+			ID:        v.ID,
+			Version:   v.Version,
+			CreatedAt: v.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt: v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			Features:  features,
+		})
+	}
+	return responses, nil
 }
 
 func (s *versionService) GetVersionByID(ctx context.Context, id uint) (*model.Version, error) {

@@ -33,7 +33,7 @@ func (r *versionRepository) CreateVersion(ctx context.Context, version *model.Ve
 
 func (r *versionRepository) GetAllVersions(ctx context.Context) ([]model.Version, error) {
 	var versions []model.Version
-	err := r.db.WithContext(ctx).Order("id DESC").Find(&versions).Error
+	err := r.db.WithContext(ctx).Preload("Features").Order("id DESC").Find(&versions).Error
 	return versions, err
 }
 

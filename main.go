@@ -109,7 +109,7 @@ func main() {
 		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)
 		api.GET("/audit", middleware.JWTAuth(cfg.JWTSecret), auditHandler.ListAuditLogs)
 		api.POST("/versions", middleware.JWTAuth(cfg.JWTSecret), versionHandler.CreateVersion)
-		api.GET("/versions", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetAllVersions)
+		api.GET("/versions", versionHandler.GetAllVersions)
 		api.GET("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetVersion)
 		api.PUT("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.UpdateVersion)
 		api.DELETE("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.DeleteVersion)

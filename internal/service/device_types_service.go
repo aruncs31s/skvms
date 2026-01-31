@@ -32,6 +32,9 @@ func (s *deviceTypesService) ListDeviceTypes(
 	limit int,
 	offset int,
 ) ([]dto.GenericDropdown, error) {
+	if limit <= 0 {
+		limit = 100
+	}
 	devices, err := s.deviceTypesRepo.ListDeviceTypes(ctx, limit, offset)
 	if err != nil {
 		return nil, err

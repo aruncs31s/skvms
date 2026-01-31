@@ -50,13 +50,22 @@ func (s *deviceService) ControlDevice(ctx context.Context, id uint, command stri
 
 func (s *deviceService) CreateDevice(ctx context.Context, req *dto.CreateDeviceRequest) error {
 	device := &model.Device{
-		Name: req.Name,
-		Type: req.Type,
+		Name:      req.Name,
+		Type:      req.Type,
+		VersionID: req.FirmwareVersionID,
 	}
 	details := &model.DeviceDetails{
 		IPAddress:       req.IPAddress,
 		MACAddress:      req.MACAddress,
-		FirmwareVersion: req.FirmwareVersion,
+		FirmwareVersion: "",
+	}
+	// Set FirmwareVersion from version
+	if req.FirmwareVersionID != 0 {
+		version, err := s.repo.FindVersionByID(ctx, req.FirmwareVersionID)
+		if err != nil {
+			return err
+		}
+		details.FirmwareVersion = version.Version
 	}
 	address := &model.DeviceAddress{
 		Address: req.Address,
@@ -75,7 +84,16 @@ func (s *deviceService) UpdateDevice(ctx context.Context, id uint, req *dto.Upda
 		DeviceID:        id,
 		IPAddress:       req.IPAddress,
 		MACAddress:      req.MACAddress,
-		FirmwareVersion: req.FirmwareVersion,
+		FirmwareVersion: "",
+	}
+	// Set VersionID and FirmwareVersion
+	if req.FirmwareVersionID != 0 {
+		version, err := s.repo.FindVersionByID(ctx, req.FirmwareVersionID)
+		if err != nil {
+			return err
+		}
+		device.VersionID = req.FirmwareVersionID
+		details.FirmwareVersion = version.Version
 	}
 	address := &model.DeviceAddress{
 		DeviceID: id,
