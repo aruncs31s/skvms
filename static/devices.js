@@ -99,14 +99,7 @@ async function loadDevicePage(deviceId) {
     const device = data.device;
     document.getElementById("deviceTitle").textContent = device.name;
     document.getElementById("deviceMeta").innerHTML = `
-      <div class="meta-grid">
-        <div class="meta-item"><strong>Type:</strong> ${device.type}</div>
-        <div class="meta-item"><strong>IP Address:</strong> ${device.ip_address || 'N/A'}</div>
-        <div class="meta-item"><strong>MAC Address:</strong> ${device.mac_address || 'N/A'}</div>
-        <div class="meta-item"><strong>Firmware:</strong> ${device.firmware_version || 'N/A'}</div>
-        <div class="meta-item"><strong>Address:</strong> ${device.address || 'N/A'}</div>
-        <div class="meta-item"><strong>City:</strong> ${device.city || 'N/A'}</div>
-      </div>
+      ${device.type} • IP ${device.ip_address || 'N/A'} • MAC ${device.mac_address || 'N/A'}
     `;
 
     // Load readings for this device
