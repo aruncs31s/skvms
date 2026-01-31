@@ -3,6 +3,12 @@
 const allReadingsPage = window.location.pathname === "/all-readings";
 if (allReadingsPage) {
   loadAllReadingsPage();
+  const refreshAllBtn = document.getElementById("refreshAllBtn");
+  if (refreshAllBtn) {
+    refreshAllBtn.addEventListener("click", () => {
+      loadAllReadingsPage();
+    });
+  }
 }
 
 async function loadAllReadingsPage() {
@@ -87,4 +93,31 @@ function renderAllReadings(readings) {
       </tbody>
     </table>
   `;
+
+  // Create combined chart
+  const deviceGroups = {};
+  readings.forEach(reading => {
+    if (!deviceGroups[reading.deviceId]) {
+      deviceGroups[reading.deviceId] = {
+        name: reading.deviceName,
+        data: []
+      };
+    }
+    deviceGroups[reading.deviceId].data.push([
+      reading.timestamp * 1000,
+      reading.voltage
+    ]);
+  });
+
+  const series = Object.values(deviceGroups).map(group => ({
+    name: group.name,
+    data: group.data.sort((a, b) => a[0] - b[0])
+  }));
+
+  Highcharts.chart('combinedChart', {
+    title: { text: 'Combined Device Voltages' },
+    xAxis: { type: 'datetime' },
+    yAxis: { title: { text: 'Voltage (V)' } },
+    series: series
+  });
 }
