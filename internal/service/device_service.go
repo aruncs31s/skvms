@@ -13,14 +13,19 @@ type DeviceService interface {
 	ListDevices(
 		ctx context.Context,
 	) ([]dto.DeviceView, error)
+	ListDevicesByUser(
+		ctx context.Context,
+		userID uint,
+	) ([]dto.DeviceView, error)
 	GetDevice(
 		ctx context.Context,
 		id uint,
-	) (*model.Device, error)
+	) (*dto.DeviceView, error)
 	ControlDevice(
 		ctx context.Context,
 		id uint,
 		action uint,
+		userID uint,
 	) (dto.DeviceControlResponse, error)
 	CreateDevice(ctx context.Context, req *dto.CreateDeviceRequest) error
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
@@ -49,12 +54,28 @@ func (s *deviceService) ListDevices(ctx context.Context) ([]dto.DeviceView, erro
 	return s.repo.ListDevices(ctx)
 }
 
-func (s *deviceService) GetDevice(ctx context.Context, id uint) (*model.Device, error) {
+func (s *deviceService) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
+	return s.repo.ListDevicesByUser(ctx, userID)
+}
+
+func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
 	device, err := s.repo.GetDevice(ctx, id)
 	if device == nil || err != nil {
 		return nil, err
 	}
-	return device, nil
+
+	dv := dto.DeviceView{
+		ID:              device.ID,
+		Name:            device.Name,
+		Type:            device.DeviceType.Name,
+		FirmwareVersion: device.Details.FirmwareVersion,
+		IPAddress:       device.Details.IPAddress,
+		MACAddress:      device.Details.MACAddress,
+		Address:         device.Address.Address,
+		City:            device.Address.City,
+		DeviceState:     device.CurrentState,
+	}
+	return &dv, nil
 }
 
 // ControlDevice means , changing a state like turning on/off a selected device.-
@@ -62,6 +83,7 @@ func (s *deviceService) ControlDevice(
 	ctx context.Context,
 	id uint,
 	action uint,
+	userID uint,
 ) (dto.DeviceControlResponse, error) {
 	device, err := s.repo.GetDevice(ctx, id)
 	if err != nil {
@@ -102,6 +124,7 @@ func (s *deviceService) ControlDevice(
 		ctx,
 		device.ID,
 		requestedAction,
+		userID,
 	)
 	if err != nil {
 		return dto.DeviceControlResponse{}, err

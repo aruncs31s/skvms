@@ -3,6 +3,7 @@ package http
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/logger"
@@ -12,17 +13,20 @@ import (
 )
 
 type DeviceStateHandler struct {
-	deviceStateService service.DeviceStateService
-	auditService       service.AuditService
+	deviceStateService        service.DeviceStateService
+	deviceStateHistoryService service.DeviceStateHistoryService
+	auditService              service.AuditService
 }
 
 func NewDeviceStateHandler(
 	deviceStateService service.DeviceStateService,
+	deviceStateHistoryService service.DeviceStateHistoryService,
 	auditService service.AuditService,
 ) *DeviceStateHandler {
 	return &DeviceStateHandler{
-		deviceStateService: deviceStateService,
-		auditService:       auditService,
+		deviceStateService:        deviceStateService,
+		deviceStateHistoryService: deviceStateHistoryService,
+		auditService:              auditService,
 	}
 }
 
@@ -140,4 +144,52 @@ func (h *DeviceStateHandler) DeleteDeviceState(c *gin.Context) {
 		"Deleted device state ID: "+strconv.Itoa(id), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "device state deleted successfully"})
+}
+
+func (h *DeviceStateHandler) GetDeviceStateHistory(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	var req dto.DeviceStateFilterRequest
+	req.DeviceID = uint(deviceID)
+
+	// Parse optional query parameters
+	if fromDate := c.Query("from_date"); fromDate != "" {
+		if parsed, err := time.Parse("2006-01-02", fromDate); err == nil {
+			req.FromDate = parsed
+		}
+	}
+	if toDate := c.Query("to_date"); toDate != "" {
+		if parsed, err := time.Parse("2006-01-02", toDate); err == nil {
+			req.ToDate = parsed
+		}
+	}
+	if states := c.QueryArray("states"); len(states) > 0 {
+		req.States = make([]uint, len(states))
+		for i, state := range states {
+			if parsed, err := strconv.ParseUint(state, 10, 64); err == nil {
+				req.States[i] = uint(parsed)
+			}
+		}
+	}
+
+	history, err := h.deviceStateHistoryService.GetDeviceStateHistory(c.Request.Context(), req)
+	if err != nil {
+		logger.GetLogger().Error("Failed to get device state history",
+			zap.Error(err),
+			zap.Uint("device_id", uint(deviceID)),
+			zap.String("ip", c.ClientIP()),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load device state history"})
+		return
+	}
+
+	logger.GetLogger().Debug("Device state history retrieved successfully",
+		zap.Uint("device_id", uint(deviceID)),
+		zap.Int("count", len(history.History)),
+	)
+	c.JSON(http.StatusOK, history)
 }

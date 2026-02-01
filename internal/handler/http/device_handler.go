@@ -65,21 +65,7 @@ func (h *DeviceHandler) GetDevice(c *gin.Context) {
 		return
 	}
 
-	// Convert to DeviceView DTO for proper JSON response
-	deviceView := dto.DeviceView{
-		ID:              device.ID,
-		Name:            device.Name,
-		Type:            device.DeviceType.Name,
-		IPAddress:       device.Details.IPAddress,
-		MACAddress:      device.Details.MACAddress,
-		FirmwareVersion: device.Details.FirmwareVersion,
-		VersionID:       device.VersionID,
-		Address:         device.Address.Address,
-		City:            device.Address.City,
-		DeviceState:     device.CurrentState,
-	}
-
-	c.JSON(http.StatusOK, gin.H{"device": deviceView})
+	c.JSON(http.StatusOK, gin.H{"device": device})
 }
 
 func (h *DeviceHandler) ControlDevice(c *gin.Context) {
@@ -92,10 +78,12 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 	var req dto.ControlRequest
 	_ = c.ShouldBindJSON(&req)
 
+	userID, _ := c.Get("user_id")
 	message, err := h.deviceService.ControlDevice(
 		c.Request.Context(),
 		uint(id),
 		req.Action,
+		userID.(uint),
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "command failed"})
@@ -107,7 +95,6 @@ func (h *DeviceHandler) ControlDevice(c *gin.Context) {
 	}
 
 	// Audit log
-	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
 	_ = h.auditService.LogDeviceAction(
 		c.Request.Context(),

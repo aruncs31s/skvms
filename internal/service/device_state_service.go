@@ -19,6 +19,7 @@ type DeviceControl interface {
 		ctx context.Context,
 		id uint,
 		action model.DeviceAction,
+		userID uint,
 	) (string, error)
 }
 type DeviceStateReader interface {
@@ -57,6 +58,7 @@ func (s *deviceStateService) Actuate(
 	ctx context.Context,
 	id uint,
 	action model.DeviceAction,
+	userID uint,
 ) (string, error) {
 	if !action.Validate() {
 		return "", errors.New("invalid device action")
@@ -104,24 +106,17 @@ func (s *deviceStateService) Actuate(
 		tx.Rollback()
 		return state.Name, err
 	}
-	go func() {
-		_ = s.deviceStateHistoryService.Log(
-			ctx,
-			device.ID,
-			action,
-			nextState,
-		)
-	}()
-	// Insert history
-	history := &model.DeviceStateHistory{
-		DeviceID:     device.ID,
-		CausedAction: action,
-		StateID:      nextState,
-	}
 
-	if err := s.repo.InsertStateHistory(ctx, tx, history); err != nil {
-		tx.Rollback()
-		return state.Name, err
+	// Log state change history
+	if err := s.deviceStateHistoryService.Log(
+		ctx,
+		device.ID,
+		action,
+		nextState,
+		userID,
+	); err != nil {
+		// Log error but don't fail the operation
+		// TODO: Consider using a logger here
 	}
 
 	nextStateObj, err := s.repo.GetByID(ctx, nextState)

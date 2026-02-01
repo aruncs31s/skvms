@@ -15,6 +15,7 @@ type DeviceStateHistoryService interface {
 		deviceID uint,
 		action model.DeviceAction,
 		newStateID uint,
+		userID uint,
 	) error
 	GetDeviceStateHistory(
 		ctx context.Context,
@@ -37,11 +38,13 @@ func (s *deviceStateHistoryService) Log(
 	deviceID uint,
 	action model.DeviceAction,
 	newStateID uint,
+	userID uint,
 ) error {
 	history := &model.DeviceStateHistory{
 		DeviceID:     deviceID,
 		CausedAction: action,
 		StateID:      newStateID,
+		CreatedBy:    userID,
 	}
 	return s.repo.Create(ctx, nil, history)
 }

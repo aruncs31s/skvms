@@ -69,15 +69,17 @@ func (r *deviceStateHistoryRepository) GetDeviceStateHistory(
 	if !to.IsZero() {
 		query = query.Where("created_at <= ?", to)
 	}
-	query = query.Joins(
-		"JOIN device_state ds ON ds.id = dsh.state_id",
+	query = query.
+		Joins(
+			"JOIN device_states ds ON ds.id = dsh.state_id",
+		).Joins(
 		"JOIN users u ON u.id = dsh.created_by",
 	)
 	query = query.Select(
 		[]string{
 			"dsh.caused_action AS action",
 			"ds.name AS state",
-			"TO_CHAR(dsh.created_at, 'YYYY-MM-DD HH24:MI:SS') AS changed_at",
+			"DATE_FORMAT(dsh.created_at, '%Y-%m-%d %H:%i:%s') AS changed_at",
 			"u.username AS changed_by",
 		},
 	)

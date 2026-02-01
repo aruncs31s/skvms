@@ -10,6 +10,7 @@ import (
 
 type DeviceRepository interface {
 	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
+	ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error)
 	GetDeviceForUpdate(
 		ctx context.Context,
 		tx *gorm.DB,
@@ -47,7 +48,7 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 	var devices []dto.DeviceView
 	err := r.db.WithContext(ctx).
 		Table("devices d").
-		Select("d.id, d.name, COALESCE(dt.type_name, 'Unknown') AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, d.version_id AS version_id, device_address.address, device_address.city").
+		Select("d.id, d.name, COALESCE(dt.type_name, 'Unknown') AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, d.version_id AS version_id, device_address.address, device_address.city, d.device_state AS device_state").
 		Joins("LEFT JOIN device_details ON device_details.device_id = d.id").
 		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
 		Joins("LEFT JOIN device_types dt ON dt.id = d.device_type").
@@ -57,6 +58,23 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 	}
 	return devices, nil
 }
+
+func (r *deviceRepository) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
+	var devices []dto.DeviceView
+	err := r.db.WithContext(ctx).
+		Table("devices d").
+		Select("d.id, d.name, COALESCE(dt.type_name, 'Unknown') AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, d.version_id AS version_id, device_address.address, device_address.city, d.device_state AS device_state").
+		Joins("LEFT JOIN device_details ON device_details.device_id = d.id").
+		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_types dt ON dt.id = d.device_type").
+		Where("d.created_by = ?", userID).
+		Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return devices, nil
+}
+
 func (r *deviceRepository) GetDeviceForUpdate(
 	ctx context.Context,
 	tx *gorm.DB,
@@ -79,8 +97,8 @@ func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Devic
 	err := r.db.WithContext(ctx).
 		Preload("Details").
 		Preload("Address").
-		First(&device, id).
-		Scan(&device).Error
+		Preload("DeviceType").
+		First(&device, id).Error
 	if err != nil {
 		return nil, err
 	}

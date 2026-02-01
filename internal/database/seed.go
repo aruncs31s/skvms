@@ -316,8 +316,6 @@ func seedDevices(db *gorm.DB) error {
 	return nil
 }
 
-/* ---------------- Readings ---------------- */
-
 func seedReadings(db *gorm.DB) error {
 	var count int64
 	if err := db.Model(&model.Reading{}).Count(&count).Error; err != nil {
@@ -333,19 +331,56 @@ func seedReadings(db *gorm.DB) error {
 	}
 
 	now := time.Now()
+	daysInYear := 365
+	readingsPerDay := 1000
+
+	// Batch insert for better performance
+	batchSize := 500
+	readings := make([]model.Reading, 0, batchSize)
+
 	for _, deviceID := range deviceIDs {
-		for i := 0; i < 60; i++ {
-			reading := model.Reading{
-				DeviceID:  deviceID,
-				Voltage:   220 + float64((i%7)-3)*0.8,
-				Current:   2.5 + float64((i%9)-4)*0.12,
-				Timestamp: now.Add(-time.Duration(60-i) * time.Minute).Unix(),
-			}
-			if err := db.Create(&reading).Error; err != nil {
-				return err
+		for day := 0; day < daysInYear; day++ {
+			for reading := 0; reading < readingsPerDay; reading++ {
+				// Calculate timestamp: spread 1000 readings evenly across 24 hours
+				minutesInDay := 24 * 60
+				minuteOffset := (reading * minutesInDay) / readingsPerDay
+				timestamp := now.Add(-time.Duration(daysInYear-day)*24*time.Hour + time.Duration(minuteOffset)*time.Minute)
+
+				// Generate realistic voltage and current with some variation
+				voltageBase := 220.0
+				voltageVariation := 5.0 * (float64(reading%100) / 100.0) // 0-5V variation
+				voltage := voltageBase + voltageVariation - 2.5          // ±2.5V around base
+
+				currentBase := 2.5
+				currentVariation := 0.5 * (float64(reading%50) / 50.0) // 0-0.5A variation
+				current := currentBase + currentVariation - 0.25       // ±0.25A around base
+
+				readings = append(readings, model.Reading{
+					DeviceID:  deviceID,
+					Voltage:   voltage,
+					Current:   current,
+					CreatedAt: timestamp,
+				})
+
+				// Insert batch when reaching batch size
+				if len(readings) >= batchSize {
+					if err := db.Create(&readings).Error; err != nil {
+						return err
+					}
+					readings = readings[:0] // Clear slice but keep capacity
+				}
 			}
 		}
+
+		// Insert remaining readings for this device
+		if len(readings) > 0 {
+			if err := db.Create(&readings).Error; err != nil {
+				return err
+			}
+			readings = readings[:0]
+		}
 	}
+
 	return nil
 }
 
@@ -378,18 +413,21 @@ func seedDeviceStateHistory(db *gorm.DB) error {
 				DeviceID:     deviceID,
 				CausedAction: model.ActionCreate,
 				StateID:      1, // Active
+				CreatedBy:    1, // Admin user
 				CreatedAt:    now.Add(-72 * time.Hour),
 			},
 			{
 				DeviceID:     deviceID,
 				CausedAction: model.ActionTurnOff,
 				StateID:      2, // Inactive
+				CreatedBy:    1, // Admin user
 				CreatedAt:    now.Add(-48 * time.Hour),
 			},
 			{
 				DeviceID:     deviceID,
 				CausedAction: model.ActionTurnOn,
 				StateID:      1, // Active
+				CreatedBy:    1, // Admin user
 				CreatedAt:    now.Add(-24 * time.Hour),
 			},
 		}
@@ -401,18 +439,21 @@ func seedDeviceStateHistory(db *gorm.DB) error {
 					DeviceID:     deviceID,
 					CausedAction: model.ActionConfigure,
 					StateID:      1, // Stay Active
+					CreatedBy:    1, // Admin user
 					CreatedAt:    now.Add(-12 * time.Hour),
 				},
 				{
 					DeviceID:     deviceID,
 					CausedAction: model.ActionTurnOff,
 					StateID:      2, // Inactive
+					CreatedBy:    1, // Admin user
 					CreatedAt:    now.Add(-6 * time.Hour),
 				},
 				{
 					DeviceID:     deviceID,
 					CausedAction: model.ActionTurnOn,
 					StateID:      1, // Active
+					CreatedBy:    1, // Admin user
 					CreatedAt:    now.Add(-2 * time.Hour),
 				},
 			}...)

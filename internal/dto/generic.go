@@ -6,10 +6,10 @@ type GenericDropdown struct {
 }
 
 type VersionResponse struct {
-	ID        uint             `json:"ID"`
-	Version   string           `json:"Version"`
-	CreatedAt string           `json:"CreatedAt"`
-	UpdatedAt string           `json:"UpdatedAt"`
+	ID        uint              `json:"ID"`
+	Version   string            `json:"Version"`
+	CreatedAt string            `json:"CreatedAt"`
+	UpdatedAt string            `json:"UpdatedAt"`
 	Features  []FeatureResponse `json:"Features"`
 }
 
@@ -18,4 +18,14 @@ type FeatureResponse struct {
 	VersionID   uint   `json:"VersionID"`
 	FeatureName string `json:"FeatureName"`
 	Enabled     bool   `json:"Enabled"`
+}
+
+type AuditLogView struct {
+	ID        uint   `json:"id"`
+	Username  string `json:"username"`
+	Action    string `json:"action"`
+	Details   string `json:"details"`
+	IPAddress string `json:"ip_address"`
+	DeviceID  *uint  `json:"device_id,omitempty"`
+	CreatedAt string `json:"created_at"`
 }

@@ -65,10 +65,12 @@ type Device struct {
 	// Also FK to DeviceState.ID
 	CurrentState uint `gorm:"column:device_state"`
 
-	Details    DeviceDetails `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Address    DeviceAddress `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	DeviceType DeviceTypes   `gorm:"foreignKey:DeviceTypeID;references:ID"`
-	Version    Version       `gorm:"foreignKey:VersionID;references:ID"`
+	Details          DeviceDetails     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Address          DeviceAddress     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	DeviceType       DeviceTypes       `gorm:"foreignKey:DeviceTypeID;references:ID"`
+	Version          Version           `gorm:"foreignKey:VersionID;references:ID"`
+	Readings         []Reading         `gorm:"foreignKey:DeviceID;references:ID"`
+	ConnectedDevices []ConnectedDevice `gorm:"foreignKey:DeviceID;references:ID"`
 
 	CreatedBy uint `gorm:"column:created_by"`
 	UpdatedBy uint `gorm:"column:updated_by"`
@@ -100,9 +102,11 @@ type DeviceStateHistory struct {
 	DeviceID     uint         `gorm:"column:device_id"`
 	CausedAction DeviceAction `gorm:"column:caused_action"`
 	StateID      uint         `gorm:"column:state_id"`
+	CreatedBy    uint         `gorm:"column:created_by"`
 	CreatedAt    time.Time    `gorm:"column:created_at;autoCreateTime"`
 	DeviceState  DeviceState  `gorm:"foreignKey:StateID;references:ID"`
 	Device       Device       `gorm:"foreignKey:DeviceID;references:ID"`
+	User         User         `gorm:"foreignKey:CreatedBy;references:ID;constraint:-"`
 }
 
 func (DeviceStateHistory) TableName() string {

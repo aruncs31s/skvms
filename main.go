@@ -11,6 +11,7 @@ import (
 	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/repository"
 	"github.com/aruncs31s/skvms/internal/service"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -64,7 +65,7 @@ func main() {
 		auditService,
 	)
 	readingService := service.NewReadingService(readingRepo)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, deviceService, auditService)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
 
@@ -75,12 +76,23 @@ func main() {
 	userHandler := httpHandler.NewUserHandler(userService, auditService)
 	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
 	versionHandler := httpHandler.NewVersionHandler(versionService)
-	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, auditService)
+	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, service.NewDeviceStateHistoryService(
+		repository.NewDeviceStateHistoryRepository(db),
+	), auditService)
 
 	// Initialize audit middleware
 	auditMiddleware := middleware.NewAuditMiddleware(auditService, cfg.JWTSecret)
 
 	router := gin.Default()
+
+	// Add CORS middleware for React frontend
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
 
 	router.Static("/static", "./static")
 	router.GET("/", func(c *gin.Context) {
@@ -115,6 +127,7 @@ func main() {
 		api.GET("/devices/:id", deviceHandler.GetDevice)
 		api.GET("/devices/:id/readings", readingHandler.ListByDevice)
 		api.GET("/devices/:id/readings/range", readingHandler.ListByDateRange)
+		api.GET("/devices/:id/readings/interval", readingHandler.ListByDeviceWithInterval)
 		api.POST("/devices/:id/control", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.ControlDevice)
 		api.POST("/devices", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.CreateDevice)
 		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), auditMiddleware.Audit("device_update"), deviceHandler.UpdateDevice)
@@ -125,8 +138,10 @@ func main() {
 		api.POST("/device-states", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.CreateDeviceState)
 		api.PUT("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.UpdateDeviceState)
 		api.DELETE("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.DeleteDeviceState)
+		api.GET("/devices/:id/state-history", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.GetDeviceStateHistory)
 		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
 		api.GET("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetUser)
+		api.GET("/profile", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetProfile)
 		api.POST("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.CreateUser)
 		api.PUT("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.UpdateUser)
 		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)

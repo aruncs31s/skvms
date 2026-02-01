@@ -46,4 +46,3 @@ type CreateDeviceStateRequest struct {
 type UpdateDeviceStateRequest struct {
 	Name string `json:"name" binding:"required"`
 }
-

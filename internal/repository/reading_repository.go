@@ -2,15 +2,39 @@ package repository
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
 	"gorm.io/gorm"
 )
 
 type ReadingRepository interface {
-	ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, error)
-	ListByDeviceAndDateRange(ctx context.Context, deviceID uint, startTime, endTime int64) ([]model.Reading, error)
-	GetStats(ctx context.Context, deviceID uint, startTime, endTime int64) (map[string]interface{}, error)
+	ListByDevice(
+		ctx context.Context,
+		deviceID uint,
+		limit int,
+	) ([]model.Reading, error)
+	ListByDeviceAndDateRange(
+		ctx context.Context,
+		deviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+	) ([]model.Reading, error)
+	ListByDeviceWithInterval(
+		ctx context.Context,
+		deviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+		interval time.Duration,
+		count int,
+	) ([]model.Reading, error)
+	GetStats(
+		ctx context.Context,
+		deviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+	) (map[string]interface{}, error)
 }
 
 type readingRepository struct {
@@ -32,7 +56,7 @@ func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, lim
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ?", deviceID).
-		Order("timestamp ASC").
+		Order("created_at ASC").
 		Limit(limit).
 		Find(&readings).Error
 	if err != nil {
@@ -41,11 +65,81 @@ func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, lim
 	return readings, nil
 }
 
-func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, deviceID uint, startTime, endTime int64) ([]model.Reading, error) {
+func (r *readingRepository) ListByDeviceWithInterval(ctx context.Context, deviceID uint, startTime, endTime time.Time, interval time.Duration, count int) ([]model.Reading, error) {
+	if count <= 0 {
+		count = 50
+	}
+	if count > 1000 {
+		count = 1000
+	}
+
+	var readings []model.Reading
+
+	// Calculate time points for sampling
+	timePoints := make([]time.Time, 0, count)
+	currentTime := startTime
+
+	for i := 0; i < count && currentTime.Before(endTime); i++ {
+		timePoints = append(timePoints, currentTime)
+		currentTime = currentTime.Add(interval)
+	}
+
+	// If we have time points, query for readings closest to each time point
+	if len(timePoints) > 0 {
+		// Build query to get readings closest to each time point
+		query := r.db.WithContext(ctx).Where("device_id = ?", deviceID)
+
+		// Add conditions for each time point - find readings within a small window around each point
+		conditions := make([]string, 0, len(timePoints))
+		args := make([]interface{}, 0, len(timePoints)*3)
+
+		for _, tp := range timePoints {
+			// Look for readings within 30 seconds of each time point
+			window := 30 * time.Second
+			conditions = append(conditions, "(created_at >= ? AND created_at <= ?)")
+			args = append(args, tp.Add(-window), tp.Add(window))
+		}
+
+		query = query.Where(strings.Join(conditions, " OR "), args...)
+
+		err := query.Order("created_at ASC").Find(&readings).Error
+		if err != nil {
+			return nil, err
+		}
+
+		// Group readings by time windows and pick the closest one to each time point
+		result := make([]model.Reading, 0, len(timePoints))
+		for _, tp := range timePoints {
+			var closest *model.Reading
+			minDiff := time.Hour // Large initial difference
+
+			for _, reading := range readings {
+				diff := reading.CreatedAt.Sub(tp)
+				if diff < 0 {
+					diff = -diff
+				}
+				if diff < minDiff {
+					minDiff = diff
+					closest = &reading
+				}
+			}
+
+			if closest != nil {
+				result = append(result, *closest)
+			}
+		}
+
+		return result, nil
+	}
+
+	return readings, nil
+}
+
+func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, deviceID uint, startTime, endTime time.Time) ([]model.Reading, error) {
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
-		Where("device_id = ? AND timestamp >= ? AND timestamp <= ?", deviceID, startTime, endTime).
-		Order("timestamp ASC").
+		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
+		Order("created_at ASC").
 		Find(&readings).Error
 	if err != nil {
 		return nil, err
@@ -53,39 +147,39 @@ func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, device
 	return readings, nil
 }
 
-func (r *readingRepository) GetStats(ctx context.Context, deviceID uint, startTime, endTime int64) (map[string]interface{}, error) {
+func (r *readingRepository) GetStats(ctx context.Context, deviceID uint, startTime, endTime time.Time) (map[string]interface{}, error) {
 	var stats struct {
 		MaxVoltage     float64
 		MinVoltage     float64
 		MaxCurrent     float64
 		MinCurrent     float64
-		MaxVoltageTime int64
-		MinVoltageTime int64
+		MaxVoltageTime time.Time
+		MinVoltageTime time.Time
 	}
 
 	var maxVReading model.Reading
 	err := r.db.WithContext(ctx).
-		Where("device_id = ? AND timestamp >= ? AND timestamp <= ?", deviceID, startTime, endTime).
+		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
 		Order("voltage DESC").
 		First(&maxVReading).Error
 	if err == nil {
 		stats.MaxVoltage = maxVReading.Voltage
-		stats.MaxVoltageTime = maxVReading.Timestamp
+		stats.MaxVoltageTime = maxVReading.CreatedAt
 	}
 
 	var minVReading model.Reading
 	err = r.db.WithContext(ctx).
-		Where("device_id = ? AND timestamp >= ? AND timestamp <= ?", deviceID, startTime, endTime).
+		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
 		Order("voltage ASC").
 		First(&minVReading).Error
 	if err == nil {
 		stats.MinVoltage = minVReading.Voltage
-		stats.MinVoltageTime = minVReading.Timestamp
+		stats.MinVoltageTime = minVReading.CreatedAt
 	}
 
 	var maxCReading model.Reading
 	err = r.db.WithContext(ctx).
-		Where("device_id = ? AND timestamp >= ? AND timestamp <= ?", deviceID, startTime, endTime).
+		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
 		Order("current DESC").
 		First(&maxCReading).Error
 	if err == nil {
@@ -94,7 +188,7 @@ func (r *readingRepository) GetStats(ctx context.Context, deviceID uint, startTi
 
 	var minCReading model.Reading
 	err = r.db.WithContext(ctx).
-		Where("device_id = ? AND timestamp >= ? AND timestamp <= ?", deviceID, startTime, endTime).
+		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
 		Order("current ASC").
 		First(&minCReading).Error
 	if err == nil {

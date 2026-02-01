@@ -10,6 +10,7 @@ import (
 type AuditRepository interface {
 	Create(ctx context.Context, log *model.AuditLog) error
 	List(ctx context.Context, action string, limit int) ([]model.AuditLog, error)
+	ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error)
 }
 
 type auditRepository struct {
@@ -39,5 +40,22 @@ func (r *auditRepository) List(ctx context.Context, action string, limit int) ([
 
 	var logs []model.AuditLog
 	err := query.Find(&logs).Error
+	return logs, err
+}
+
+func (r *auditRepository) ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	var logs []model.AuditLog
+	err := r.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
 	return logs, err
 }

@@ -1,6 +1,7 @@
 package http
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -53,8 +54,11 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
-	if err := h.userService.Create(c.Request.Context(), &req); err != nil {
+	log.Printf("Creating user - name: %s, username: %s, email: %s, role: %s", req.Name, req.Username, req.Email, req.Role)
+	if err := h.userService.Create(
+		c.Request.Context(),
+		&req,
+	); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -114,4 +118,20 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		"Deleted user ID: "+strconv.FormatUint(id, 10), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted successfully"})
+}
+
+func (h *UserHandler) GetProfile(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	profile, err := h.userService.GetProfile(c.Request.Context(), userID.(uint))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load user profile"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"profile": profile})
 }

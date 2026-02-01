@@ -19,6 +19,7 @@ type AuditService interface {
 		deviceID uint,
 	) error
 	List(ctx context.Context, action string, limit int) ([]model.AuditLog, error)
+	ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error)
 }
 
 type auditService struct {
@@ -83,4 +84,8 @@ func (s *auditService) LogDeviceAction(
 }
 func (s *auditService) List(ctx context.Context, action string, limit int) ([]model.AuditLog, error) {
 	return s.repo.List(ctx, action, limit)
+}
+
+func (s *auditService) ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error) {
+	return s.repo.ListByUser(ctx, userID, limit)
 }

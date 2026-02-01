@@ -4,20 +4,21 @@ import "time"
 
 type User struct {
 	ID   uint   `gorm:"primaryKey;autoIncrement" json:"id"`
-	Name string `gorm:"column:name;not null" json:"name"`
+	Name string `gorm:"column:name" json:"name"`
 
-	Username string `gorm:"column:username;unique;not null" json:"username"`
-	Email    string `gorm:"column:email;unique;not null" json:"email"`
+	Username string `gorm:"column:username;unique" json:"username"`
+	Email    string `gorm:"column:email" json:"email"`
 	Password string `gorm:"column:passsword;not null" json:"-"`
-	Role     string `gorm:"column:role;not null" json:"role"`
+	Role     string `gorm:"column:role;default:'user'" json:"role"`
 
 	// Timestamps
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime" json:"updated_at"`
 
 	// For Admin
-	CreatedBy uint `gorm:"column:created_by" json:"created_by"`
-	UpdatedBy uint `gorm:"column:updated_by" json:"updated_by"`
+	CreatedByID *uint    `gorm:"column:created_by" json:"created_by"`
+	UpdatedBy   uint     `gorm:"column:updated_by" json:"updated_by"`
+	Devices     []Device `gorm:"foreignKey:CreatedBy;references:ID"`
 }
 
 func (User) TableName() string {

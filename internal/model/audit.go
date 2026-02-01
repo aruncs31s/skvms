@@ -14,6 +14,7 @@ type AuditLog struct {
 	DeviceID  *uint        `gorm:"column:device_id;index" json:"device_id,omitempty"`
 	CreatedAt time.Time    `gorm:"column:created_at;autoCreateTime" json:"created_at"`
 	Device    *Device      `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
+	User      *User        `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 func (AuditLog) TableName() string {
