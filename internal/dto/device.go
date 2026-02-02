@@ -15,7 +15,8 @@ type DeviceView struct {
 
 type CreateDeviceRequest struct {
 	Name              string `json:"name" binding:"required"`
-	Type              uint   `json:"type" binding:"required"`
+	UID               string `json:"uid" binding:"required"`
+	Type              uint   `json:"type"`
 	IPAddress         string `json:"ip_address" `
 	MACAddress        string `json:"mac_address"`
 	FirmwareVersionID uint   `json:"firmware_version_id"`
@@ -24,13 +25,13 @@ type CreateDeviceRequest struct {
 }
 
 type UpdateDeviceRequest struct {
-	Name              string `json:"name" binding:"required"`
-	Type              uint   `json:"type" binding:"required"`
-	IPAddress         string `json:"ip_address" binding:"required"`
-	MACAddress        string `json:"mac_address" binding:"required"`
-	FirmwareVersionID uint   `json:"firmware_version_id" binding:"required"`
-	Address           string `json:"address"`
-	City              string `json:"city"`
+	Name              *string `json:"name,omitempty"`
+	Type              *uint   `json:"type,omitempty"`
+	IPAddress         *string `json:"ip_address,omitempty"`
+	MACAddress        *string `json:"mac_address,omitempty"`
+	FirmwareVersionID *uint   `json:"firmware_version_id,omitempty"`
+	Address           *string `json:"address,omitempty"`
+	City              *string `json:"city,omitempty"`
 }
 
 type DeviceStateView struct {
@@ -45,4 +46,8 @@ type CreateDeviceStateRequest struct {
 
 type UpdateDeviceStateRequest struct {
 	Name string `json:"name" binding:"required"`
+}
+
+type AddConnectedDeviceRequest struct {
+	ChildID uint `json:"child_id" binding:"required"`
 }

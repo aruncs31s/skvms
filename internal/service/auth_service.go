@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
 	"github.com/golang-jwt/jwt/v5"
@@ -12,6 +13,7 @@ import (
 
 type AuthService interface {
 	Login(ctx context.Context, username, password string) (string, *model.User, error)
+	Register(ctx context.Context, req *dto.CreateUserRequest) (*model.User, error)
 }
 
 type authService struct {
@@ -49,4 +51,26 @@ func (s *authService) Login(ctx context.Context, username, password string) (str
 	}
 
 	return tokenString, user, nil
+}
+
+func (s *authService) Register(ctx context.Context, req *dto.CreateUserRequest) (*model.User, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+
+	if err != nil {
+		return nil, err
+	}
+
+	user := &model.User{
+		Name:     req.Name,
+		Username: req.Username,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Role:     req.Role,
+	}
+
+	if err := s.repo.Create(ctx, user); err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }

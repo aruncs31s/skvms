@@ -24,7 +24,7 @@ type DeviceRepository interface {
 		device *model.Device,
 		details *model.DeviceDetails,
 		address *model.DeviceAddress,
-	) error
+	) (*model.Device, error)
 	UpdateDevice(
 		ctx context.Context,
 		device *model.Device,
@@ -33,7 +33,15 @@ type DeviceRepository interface {
 	) error
 	DeleteDevice(ctx context.Context, id uint) error
 	FindVersionByVersion(ctx context.Context, version string) (*model.Version, error)
-	FindVersionByID(ctx context.Context, id uint) (*model.Version, error)
+	FindVersionByID(
+		ctx context.Context,
+		id uint,
+	) (
+		*model.Version,
+		error,
+	)
+	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
+	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
 }
 
 type deviceRepository struct {
@@ -98,6 +106,7 @@ func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Devic
 		Preload("Details").
 		Preload("Address").
 		Preload("DeviceType").
+		Preload("Version").
 		First(&device, id).Error
 	if err != nil {
 		return nil, err
@@ -108,8 +117,9 @@ func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Devic
 	return &device, nil
 }
 
-func (r *deviceRepository) CreateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+func (r *deviceRepository) CreateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) (*model.Device, error) {
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(device).Error; err != nil {
 			return err
 		}
@@ -123,6 +133,10 @@ func (r *deviceRepository) CreateDevice(ctx context.Context, device *model.Devic
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	return device, nil
 }
 
 func (r *deviceRepository) UpdateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error {
@@ -171,4 +185,43 @@ func (r *deviceRepository) FindVersionByID(ctx context.Context, id uint) (*model
 		return nil, err
 	}
 	return &v, nil
+}
+
+func (r *deviceRepository) AddConnectedDevice(ctx context.Context, parentID, childID uint) error {
+	connected := &model.ConnectedDevice{
+		ParentID: parentID,
+		ChildID:  childID,
+	}
+	return r.db.WithContext(ctx).Create(connected).Error
+}
+
+func (r *deviceRepository) GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error) {
+	var connected []model.ConnectedDevice
+	err := r.db.WithContext(ctx).Where("parent_id = ?", parentID).Find(&connected).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var devices []dto.DeviceView
+	for _, c := range connected {
+		device, err := r.GetDevice(ctx, c.ChildID)
+		if err != nil {
+			return nil, err
+		}
+		if device != nil {
+			dv := dto.DeviceView{
+				ID:              device.ID,
+				Name:            device.Name,
+				Type:            device.DeviceType.Name,
+				FirmwareVersion: device.Version.Version,
+				IPAddress:       device.Details.IPAddress,
+				MACAddress:      device.Details.MACAddress,
+				Address:         device.Address.Address,
+				City:            device.Address.City,
+				DeviceState:     device.CurrentState,
+			}
+			devices = append(devices, dv)
+		}
+	}
+	return devices, nil
 }

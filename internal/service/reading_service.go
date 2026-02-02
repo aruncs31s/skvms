@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
 )
@@ -25,6 +26,16 @@ type ReadingService interface {
 		count int,
 	) ([]model.Reading, error)
 	GetStats(ctx context.Context, deviceID uint, startTime, endTime time.Time) (map[string]interface{}, error)
+	RecordEssentialReadings(
+		ctx context.Context,
+		deviceID uint,
+		req *dto.EssentialReadingRequest,
+	) (*model.Reading, error)
+	// RecordReadings(
+	// 	ctx context.Context,
+	// 	deviceID uint,
+	// 	req *dto.ReadingRequest,
+	// ) (*model.Reading, error)
 }
 
 type readingService struct {
@@ -79,4 +90,21 @@ func (s *readingService) ListByDeviceWithInterval(
 
 func (s *readingService) GetStats(ctx context.Context, deviceID uint, startTime, endTime time.Time) (map[string]interface{}, error) {
 	return s.repo.GetStats(ctx, deviceID, startTime, endTime)
+}
+
+func (s *readingService) RecordEssentialReadings(
+	ctx context.Context,
+	deviceID uint,
+	req *dto.EssentialReadingRequest,
+) (*model.Reading, error) {
+	reading := &model.Reading{
+		DeviceID:  deviceID,
+		Voltage:   req.Voltage,
+		Current:   req.Current,
+		CreatedAt: time.Now(),
+	}
+	return s.repo.Create(
+		ctx,
+		reading,
+	)
 }

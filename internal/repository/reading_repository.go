@@ -35,6 +35,14 @@ type ReadingRepository interface {
 		startTime time.Time,
 		endTime time.Time,
 	) (map[string]interface{}, error)
+	ReadingWriter
+}
+type ReadingWriter interface {
+	Create(
+		ctx context.Context,
+		reading *model.Reading,
+	) (*model.Reading, error)
+	// Methods for writing readings can be added here
 }
 
 type readingRepository struct {
@@ -203,4 +211,11 @@ func (r *readingRepository) GetStats(ctx context.Context, deviceID uint, startTi
 		"max_voltage_time": stats.MaxVoltageTime,
 		"min_voltage_time": stats.MinVoltageTime,
 	}, nil
+}
+func (r *readingRepository) Create(ctx context.Context, reading *model.Reading) (*model.Reading, error) {
+	err := r.db.WithContext(ctx).Create(reading).Error
+	if err != nil {
+		return nil, err
+	}
+	return reading, nil
 }

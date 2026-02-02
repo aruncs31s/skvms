@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/aruncs31s/skvms/internal/dto"
+	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
 )
 
@@ -13,6 +14,10 @@ type DeviceTypesService interface {
 		limit int,
 		offset int,
 	) ([]dto.GenericDropdown, error)
+	GetHardwareTypeByID(
+		ctx context.Context,
+		id uint,
+	) (*dto.GenericDropdownWithFeatures, error)
 }
 
 type deviceTypesService struct {
@@ -50,4 +55,22 @@ func (s *deviceTypesService) ListDeviceTypes(
 	}
 
 	return dropdowns, nil
+}
+func (s *deviceTypesService) GetHardwareTypeByID(
+	ctx context.Context,
+	id uint,
+) (*dto.GenericDropdownWithFeatures, error) {
+	m := make(map[string]bool)
+	hwType := model.HardwareType(id)
+	if hwType.CanControl() {
+		m["can_control"] = true
+	} else {
+		m["can_control"] = false
+	}
+	dropdown := &dto.GenericDropdownWithFeatures{
+		ID:       uint(hwType),
+		Name:     hwType.String(),
+		Features: m,
+	}
+	return dropdown, nil
 }

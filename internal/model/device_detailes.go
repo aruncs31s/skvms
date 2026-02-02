@@ -7,7 +7,7 @@ type DeviceDetails struct {
 	DeviceID        uint       `gorm:"column:device_id;index;not null"`
 	IPAddress       string     `gorm:"column:ip_address;index"`
 	MACAddress      string     `gorm:"column:mac_address;uniqueIndex"`
-	FirmwareVersion string     `gorm:"column:firmware_version"`
+	FirmwareVersion uint       `gorm:"column:firmware_version"`
 	LastSeenAt      *time.Time `gorm:"column:last_seen_at"`
 }
 

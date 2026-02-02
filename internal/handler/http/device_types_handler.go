@@ -10,6 +10,7 @@ import (
 
 type DeviceTypesHandler interface {
 	ListDeviceTypes(c *gin.Context)
+	GetHardwareType(c *gin.Context)
 }
 
 type deviceTypesHandler struct {
@@ -40,4 +41,27 @@ func (h *deviceTypesHandler) ListDeviceTypes(c *gin.Context) {
 		types = []dto.GenericDropdown{}
 	}
 	c.JSON(200, gin.H{"device_types": types})
+}
+
+func (h *deviceTypesHandler) GetHardwareType(c *gin.Context) {
+	idParam := c.Param("id")
+	id, err := strconv.Atoi(idParam)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid device type id"})
+		return
+	}
+
+	deviceType, err := h.deviceTypesService.GetHardwareTypeByID(
+		c.Request.Context(),
+		uint(id),
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to load device type"})
+		return
+	}
+	if deviceType == nil {
+		c.JSON(404, gin.H{"error": "device type not found"})
+		return
+	}
+	c.JSON(200, gin.H{"device_type": deviceType})
 }

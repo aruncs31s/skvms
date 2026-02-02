@@ -26,6 +26,35 @@ func NewDeviceHandler(
 	}
 }
 
+func (h *DeviceHandler) GetMyDevices(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	devices, err := h.deviceService.ListDevicesByUser(c.Request.Context(), userID.(uint))
+	if err != nil {
+		logger.GetLogger().Error("Failed to list user's devices",
+			zap.Error(err),
+			zap.String("ip", c.ClientIP()),
+			zap.Uint("user_id", userID.(uint)),
+		)
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to load devices",
+				"details": err.Error(),
+			})
+		return
+	}
+
+	logger.GetLogger().Debug("User's devices listed successfully",
+		zap.Int("count", len(devices)),
+		zap.Uint("user_id", userID.(uint)),
+	)
+	c.JSON(http.StatusOK, gin.H{"devices": devices})
+}
 func (h *DeviceHandler) ListDevices(c *gin.Context) {
 	devices, err := h.deviceService.ListDevices(c.Request.Context())
 	if err != nil {
@@ -116,7 +145,22 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		return
 	}
 
-	if err := h.deviceService.CreateDevice(c.Request.Context(), &req); err != nil {
+	// Audit log
+	userID, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+
+	if userID == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	uintUserID, ok := userID.(uint)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+	device, err := h.deviceService.CreateDevice(c.Request.Context(), uintUserID, &req)
+	if err != nil {
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{
@@ -126,13 +170,10 @@ func (h *DeviceHandler) CreateDevice(c *gin.Context) {
 		return
 	}
 
-	// Audit log
-	userID, _ := c.Get("user_id")
-	username, _ := c.Get("username")
 	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_create",
 		"Created device: "+req.Name, c.ClientIP())
 
-	c.JSON(http.StatusCreated, gin.H{"message": "device created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"device": device})
 }
 
 func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
@@ -181,4 +222,49 @@ func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 		"Deleted device ID: "+strconv.FormatUint(id, 10), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "device deleted successfully"})
+}
+
+func (h *DeviceHandler) AddConnectedDevice(
+	c *gin.Context,
+) {
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent device id"})
+		return
+	}
+
+	var req dto.AddConnectedDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.deviceService.AddConnectedDevice(c.Request.Context(), uint(parentID), req.ChildID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add connected device"})
+		return
+	}
+
+	// Audit log
+	userID, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "add_connected_device",
+		"Added connected device ID: "+strconv.FormatUint(uint64(req.ChildID), 10)+" to parent ID: "+strconv.FormatUint(parentID, 10), c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"message": "connected device added successfully"})
+}
+
+func (h *DeviceHandler) GetConnectedDevices(c *gin.Context) {
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	devices, err := h.deviceService.GetConnectedDevices(c.Request.Context(), uint(parentID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get connected devices"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"connected_devices": devices})
 }

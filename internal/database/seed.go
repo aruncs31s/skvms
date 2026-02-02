@@ -291,7 +291,7 @@ func seedDevices(db *gorm.DB) error {
 				DeviceID:        device.ID,
 				IPAddress:       data.IP,
 				MACAddress:      data.MAC,
-				FirmwareVersion: version.Version,
+				FirmwareVersion: version.ID,
 				LastSeenAt:      &now,
 			}).Error; err != nil {
 				return err

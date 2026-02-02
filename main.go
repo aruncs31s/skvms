@@ -7,12 +7,10 @@ import (
 	"github.com/aruncs31s/skvms/internal/config"
 	"github.com/aruncs31s/skvms/internal/database"
 	httpHandler "github.com/aruncs31s/skvms/internal/handler/http"
-	"github.com/aruncs31s/skvms/internal/handler/middleware"
 	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/repository"
+	"github.com/aruncs31s/skvms/internal/router"
 	"github.com/aruncs31s/skvms/internal/service"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
@@ -49,6 +47,7 @@ func main() {
 	versionRepo := repository.NewVersionRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
+	deviceAuthService := service.NewDeviceAuthService(deviceRepo, userRepo, cfg.JWTSecret)
 	auditService := service.NewAuditService(auditRepo)
 	deviceStateService := service.NewDeviceStateService(
 		repository.NewDeviceStateRepository(
@@ -61,6 +60,7 @@ func main() {
 	)
 	deviceService := service.NewDeviceService(
 		deviceRepo,
+		userRepo,
 		deviceStateService,
 		auditService,
 	)
@@ -70,6 +70,7 @@ func main() {
 	versionService := service.NewVersionService(versionRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
+	deviceAuthHandler := httpHandler.NewDeviceAuthHandler(deviceAuthService, auditService)
 	deviceHandler := httpHandler.NewDeviceHandler(deviceService, auditService)
 	readingHandler := httpHandler.NewReadingHandler(readingService)
 	auditHandler := httpHandler.NewAuditHandler(auditService)
@@ -80,87 +81,28 @@ func main() {
 		repository.NewDeviceStateHistoryRepository(db),
 	), auditService)
 
-	// Initialize audit middleware
-	auditMiddleware := middleware.NewAuditMiddleware(auditService, cfg.JWTSecret)
+	// Setup router with all routes
+	appRouter := router.NewRouter(
+		authHandler,
+		deviceHandler,
+		deviceAuthHandler,
+		readingHandler,
+		auditHandler,
+		userHandler,
+		deviceTypesHandler,
+		versionHandler,
+		deviceStateHandler,
+		auditService,
+		deviceAuthService,
+		cfg.JWTSecret,
+	)
 
-	router := gin.Default()
-
-	// Add CORS middleware for React frontend
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
-
-	router.Static("/static", "./static")
-	router.GET("/", func(c *gin.Context) {
-		c.File("./static/index.html")
-	})
-	router.GET("/login", func(c *gin.Context) {
-		c.File("./static/login.html")
-	})
-	router.GET("/devices/:id", func(c *gin.Context) {
-		c.File("./static/device-dashboard.html")
-	})
-	router.GET("/devices/:id/readings", func(c *gin.Context) {
-		c.File("./static/device.html")
-	})
-	router.GET("/all-readings", func(c *gin.Context) {
-		c.File("./static/all-readings.html")
-	})
-	router.GET("/manage-devices", func(c *gin.Context) {
-		c.File("./static/manage-devices.html")
-	})
-	router.GET("/manage-users", func(c *gin.Context) {
-		c.File("./static/manage-users.html")
-	})
-	router.GET("/audit", func(c *gin.Context) {
-		c.File("./static/audit.html")
-	})
-
-	api := router.Group("/api")
-	{
-		api.POST("/login", authHandler.Login)
-		api.GET("/devices", deviceHandler.ListDevices)
-		api.GET("/devices/:id", deviceHandler.GetDevice)
-		api.GET("/devices/:id/readings", readingHandler.ListByDevice)
-		api.GET("/devices/:id/readings/range", readingHandler.ListByDateRange)
-		api.GET("/devices/:id/readings/interval", readingHandler.ListByDeviceWithInterval)
-		api.POST("/devices/:id/control", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.ControlDevice)
-		api.POST("/devices", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.CreateDevice)
-		api.PUT("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), auditMiddleware.Audit("device_update"), deviceHandler.UpdateDevice)
-		api.DELETE("/devices/:id", middleware.JWTAuth(cfg.JWTSecret), deviceHandler.DeleteDevice)
-		api.GET("/device-types", deviceTypesHandler.ListDeviceTypes)
-		api.GET("/device-states", deviceStateHandler.ListDeviceStates)
-		api.GET("/device-states/:id", deviceStateHandler.GetDeviceState)
-		api.POST("/device-states", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.CreateDeviceState)
-		api.PUT("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.UpdateDeviceState)
-		api.DELETE("/device-states/:id", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.DeleteDeviceState)
-		api.GET("/devices/:id/state-history", middleware.JWTAuth(cfg.JWTSecret), deviceStateHandler.GetDeviceStateHistory)
-		api.GET("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.ListUsers)
-		api.GET("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetUser)
-		api.GET("/profile", middleware.JWTAuth(cfg.JWTSecret), userHandler.GetProfile)
-		api.POST("/users", middleware.JWTAuth(cfg.JWTSecret), userHandler.CreateUser)
-		api.PUT("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.UpdateUser)
-		api.DELETE("/users/:id", middleware.JWTAuth(cfg.JWTSecret), userHandler.DeleteUser)
-		api.GET("/audit", middleware.JWTAuth(cfg.JWTSecret), auditHandler.ListAuditLogs)
-		api.POST("/versions", middleware.JWTAuth(cfg.JWTSecret), versionHandler.CreateVersion)
-		api.GET("/versions", versionHandler.GetAllVersions)
-		api.GET("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetVersion)
-		api.PUT("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.UpdateVersion)
-		api.DELETE("/versions/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.DeleteVersion)
-		api.POST("/features", middleware.JWTAuth(cfg.JWTSecret), versionHandler.CreateFeature)
-		api.GET("/features/version/:verid", middleware.JWTAuth(cfg.JWTSecret), versionHandler.GetFeaturesByVersion)
-		api.PUT("/features/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.UpdateFeature)
-		api.DELETE("/features/:id", middleware.JWTAuth(cfg.JWTSecret), versionHandler.DeleteFeature)
-	}
+	ginRouter := appRouter.SetupRouter()
 
 	serverAddr := fmt.Sprintf(":%s", cfg.ServerPort)
 	srv := &http.Server{
 		Addr:    serverAddr,
-		Handler: router,
+		Handler: ginRouter,
 	}
 
 	logger.GetLogger().Info("Starting HTTP server", zap.String("address", serverAddr))

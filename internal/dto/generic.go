@@ -5,6 +5,12 @@ type GenericDropdown struct {
 	Name string `json:"name"`
 }
 
+type GenericDropdownWithFeatures struct {
+	ID       uint            `json:"id"`
+	Name     string          `json:"name"`
+	Features map[string]bool `json:"features"`
+}
+
 type VersionResponse struct {
 	ID        uint              `json:"ID"`
 	Version   string            `json:"Version"`

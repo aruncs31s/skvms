@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/aruncs31s/skvms/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -46,6 +47,30 @@ func JWTAuth(secret string) gin.HandlerFunc {
 		if username, ok := claims["username"].(string); ok {
 			c.Set("username", username)
 		}
+
+		c.Next()
+	}
+}
+
+func DeviceJWTAuth(deviceAuthService service.DeviceAuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing or invalid device token"})
+			return
+		}
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+		claims, err := deviceAuthService.ValidateDeviceToken(c.Request.Context(), tokenString)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid device token"})
+			return
+		}
+
+		// Set device_id and user_id in context
+		c.Set("device_id", claims.DeviceID)
+		c.Set("user_id", claims.UserID)
 
 		c.Next()
 	}

@@ -56,10 +56,11 @@ var DeviceStateActionResult = map[uint]map[DeviceAction]uint{
 type Device struct {
 	ID   uint   `gorm:"column:id;primaryKey;autoIncrement"`
 	Name string `gorm:"column:name"`
-
 	// 1 -  , 2 - Sensor
+	// FK to DeviceTypes.ID
 	DeviceTypeID uint `gorm:"column:device_type"`
-	VersionID    uint `gorm:"column:version_id"`
+	// FK to Version.ID
+	VersionID uint `gorm:"column:version_id"`
 
 	// 1= Active, 0 = Inactive , 2 = Maintenance, 3 = Decommissioned
 	// Also FK to DeviceState.ID
@@ -70,7 +71,7 @@ type Device struct {
 	DeviceType       DeviceTypes       `gorm:"foreignKey:DeviceTypeID;references:ID"`
 	Version          Version           `gorm:"foreignKey:VersionID;references:ID"`
 	Readings         []Reading         `gorm:"foreignKey:DeviceID;references:ID"`
-	ConnectedDevices []ConnectedDevice `gorm:"foreignKey:DeviceID;references:ID"`
+	ConnectedDevices []ConnectedDevice `gorm:"foreignKey:ParentID;references:ID"`
 
 	CreatedBy uint `gorm:"column:created_by"`
 	UpdatedBy uint `gorm:"column:updated_by"`
