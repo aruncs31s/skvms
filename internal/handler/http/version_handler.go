@@ -20,6 +20,11 @@ type createVersionRequest struct {
 	PreviousVersion string `json:"previous_version,omitempty"`
 	Version         string `json:"version" binding:"required"`
 }
+type createVersionWithFeatures struct {
+	PreviousVersion *uint  `json:"previous_version,omitempty"`
+	Version         string `json:"version" binding:"required"`
+	Features        []int  `json:"features,omitempty"`
+}
 
 type updateVersionRequest struct {
 	Version string `json:"version" binding:"required"`
@@ -200,4 +205,40 @@ func (h *VersionHandler) GetAllFeaturesByDevice(c *gin.Context) {
 	// }
 
 	c.JSON(http.StatusOK, gin.H{"features": nil})
+}
+func (h *VersionHandler) GetVersionsByDevice(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	versions, err := h.versionService.GetAllVersionAndPreviousVersionsByDevice(c.Request.Context(), uint(deviceID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get versions for device"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"versions": versions})
+}
+func (h *VersionHandler) CreateNewDeviceVersion(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	var req createVersionWithFeatures
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	version, err := h.versionService.CreateNewDeviceVersion(c.Request.Context(), uint(deviceID), req.PreviousVersion, req.Version, req.Features)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, version)
 }

@@ -26,11 +26,17 @@ func New(cfg config.Config) (*gorm.DB, error) {
 		&model.DeviceTypes{},
 		&model.Version{},
 		&model.Feature{},
+		&model.VersionFeature{},
 		&model.ConnectedDevice{},
 		&model.DeviceState{},
 		&model.DeviceStateHistory{},
 	); err != nil {
 		return nil, err
+	}
+
+	// Fix existing devices with invalid device_state after migration
+	if err := db.Exec("UPDATE devices SET current_state = 1 WHERE current_state = 0").Error; err != nil {
+		return nil, fmt.Errorf("failed to update device states: %w", err)
 	}
 
 	return db, nil

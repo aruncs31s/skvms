@@ -203,6 +203,38 @@ func (h *DeviceHandler) UpdateDevice(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "device updated successfully"})
 }
 
+func (h *DeviceHandler) FullUpdateDevice(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	var req dto.FullUpdateDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	if err := h.deviceService.FullUpdateDevice(c.Request.Context(), uint(id), &req, userID.(uint)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update device"})
+		return
+	}
+
+	// Audit log
+	username, _ := c.Get("username")
+	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "device_full_update",
+		"Fully updated device ID: "+strconv.FormatUint(id, 10), c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{"message": "device fully updated successfully"})
+}
+
 func (h *DeviceHandler) DeleteDevice(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

@@ -9,7 +9,12 @@ import (
 )
 
 type DeviceRepository interface {
-	ListDevices(ctx context.Context) ([]dto.DeviceView, error)
+	ListDevices(
+		ctx context.Context,
+	) (
+		[]model.DeviceView,
+		error,
+	)
 	ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error)
 	GetDeviceForUpdate(
 		ctx context.Context,
@@ -54,16 +59,49 @@ func NewDeviceRepository(db *gorm.DB) DeviceRepository {
 	return &deviceRepository{db: db}
 }
 
-func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, error) {
-	var devices []dto.DeviceView
-	err := r.db.WithContext(ctx).
-		Table("devices d").
-		Select("d.id, d.name, COALESCE(dt.type_name, 'Unknown') AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, d.version_id AS version_id, device_address.address, device_address.city, d.device_state AS device_state").
-		Joins("LEFT JOIN device_details ON device_details.device_id = d.id").
+func (r *deviceRepository) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
+	return dto.DeviceView{
+		ID:              d.ID,
+		Name:            d.Name,
+		Type:            d.DeviceType.Name,
+		HardwareType:    d.DeviceType.HardwareType.String(),
+		Status:          d.DeviceState.Name,
+		IPAddress:       d.Details.IPAddress,
+		MACAddress:      d.Details.MACAddress,
+		FirmwareVersion: d.Version.Name,
+		Address:         d.Address.Address,
+		City:            d.Address.City,
+	}
+}
+
+func (r *deviceRepository) ListDevices(
+	ctx context.Context,
+) (
+	[]model.DeviceView,
+	error,
+) {
+	var devices []model.DeviceView
+
+	query := r.db.Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"device_address.address",
+		"device_address.city",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
 		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
-		Joins("LEFT JOIN device_types dt ON dt.id = d.device_type").
-		Joins("LEFT JOIN device_states ds ON d.device_state  = ds.id").
-		Scan(&devices).Error
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d.version_id")
+
+	err := query.Scan(&devices).Error
 	if err != nil {
 		return nil, err
 	}
@@ -71,19 +109,23 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 }
 
 func (r *deviceRepository) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
-	var devices []dto.DeviceView
+	var devices []model.Device
 	err := r.db.WithContext(ctx).
-		Table("devices d").
-		Select("d.id, d.name, COALESCE(dt.type_name, 'Unknown') AS type, device_details.ip_address, device_details.mac_address, device_details.firmware_version, d.version_id AS version_id, device_address.address, device_address.city, d.device_state AS device_state").
-		Joins("LEFT JOIN device_details ON device_details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
-		Joins("LEFT JOIN device_types dt ON dt.id = d.device_type").
-		Where("d.created_by = ?", userID).
-		Scan(&devices).Error
+		Where("created_by = ?", userID).
+		Preload("DeviceType").
+		Preload("Version").
+		Preload("Details").
+		Preload("Address").
+		Preload("DeviceState").
+		Find(&devices).Error
 	if err != nil {
 		return nil, err
 	}
-	return devices, nil
+	var dtoDevices []dto.DeviceView
+	for _, d := range devices {
+		dtoDevices = append(dtoDevices, r.mapDeviceToDeviceView(d))
+	}
+	return dtoDevices, nil
 }
 
 func (r *deviceRepository) GetDeviceForUpdate(
@@ -219,17 +261,7 @@ func (r *deviceRepository) GetConnectedDevices(ctx context.Context, parentID uin
 			return nil, err
 		}
 		if device != nil {
-			dv := dto.DeviceView{
-				ID:              device.ID,
-				Name:            device.Name,
-				Type:            device.DeviceType.Name,
-				FirmwareVersion: device.Version.Version,
-				IPAddress:       device.Details.IPAddress,
-				MACAddress:      device.Details.MACAddress,
-				Address:         device.Address.Address,
-				City:            device.Address.City,
-				DeviceState:     device.DeviceState.Name,
-			}
+			dv := r.mapDeviceToDeviceView(*device)
 			devices = append(devices, dv)
 		}
 	}

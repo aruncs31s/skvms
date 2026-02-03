@@ -182,33 +182,41 @@ func seedVersions(db *gorm.DB) error {
 	for _, v := range versions {
 		if err := db.FirstOrCreate(
 			&model.Version{},
-			model.Version{Version: v},
+			model.Version{Name: v},
 		).Error; err != nil {
 			return err
 		}
 	}
 
 	var v2 model.Version
-	if err := db.Where("version = ?", "2.0.0").First(&v2).Error; err != nil {
+	if err := db.Where("name = ?", "2.0.0").First(&v2).Error; err != nil {
 		return err
 	}
 
 	features := []model.Feature{
-		{VersionID: v2.ID, FeatureName: "remote-control", Enabled: true},
-		{VersionID: v2.ID, FeatureName: "energy-monitoring", Enabled: true},
-		{VersionID: v2.ID, FeatureName: "alert-system", Enabled: false},
+		{FeatureName: "remote-control", Enabled: true},
+		{FeatureName: "energy-monitoring", Enabled: true},
+		{FeatureName: "alert-system", Enabled: false},
 	}
 
 	for _, f := range features {
 		if err := db.FirstOrCreate(
 			&model.Feature{},
-			model.Feature{
-				VersionID:   f.VersionID,
-				FeatureName: f.FeatureName,
-			},
+			model.Feature{FeatureName: f.FeatureName},
+			&f,
 		).Error; err != nil {
 			return err
 		}
+	}
+
+	// Associate features with version 2.0.0
+	var existingFeatures []model.Feature
+	if err := db.Where("feature_name IN ?", []string{"remote-control", "energy-monitoring", "alert-system"}).Find(&existingFeatures).Error; err != nil {
+		return err
+	}
+
+	if err := db.Model(&v2).Association("Features").Append(existingFeatures); err != nil {
+		return err
 	}
 
 	return nil
@@ -288,11 +296,10 @@ func seedDevices(db *gorm.DB) error {
 
 			now := time.Now()
 			if err := tx.Create(&model.DeviceDetails{
-				DeviceID:        device.ID,
-				IPAddress:       data.IP,
-				MACAddress:      data.MAC,
-				FirmwareVersion: version.ID,
-				LastSeenAt:      &now,
+				DeviceID:   device.ID,
+				IPAddress:  data.IP,
+				MACAddress: data.MAC,
+				LastSeenAt: &now,
 			}).Error; err != nil {
 				return err
 			}

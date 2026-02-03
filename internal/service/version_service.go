@@ -23,6 +23,13 @@ type VersionService interface {
 		ctx context.Context,
 		deviceID uint,
 	) (dto.VersionResponse, error)
+	CreateNewDeviceVersion(
+		ctx context.Context,
+		deviceID uint,
+		previousVersion *uint,
+		version string,
+		features []int,
+	) (*model.Version, error)
 }
 
 type versionService struct {
@@ -38,7 +45,7 @@ func (s *versionService) CreateVersion(ctx context.Context, version string) (*mo
 		return nil, errors.New("version cannot be empty")
 	}
 
-	v := &model.Version{Version: version}
+	v := &model.Version{Name: version}
 	err := s.repo.CreateVersion(ctx, v)
 	if err != nil {
 		return nil, err
@@ -58,14 +65,13 @@ func (s *versionService) GetAllVersions(ctx context.Context) ([]dto.VersionRespo
 		for _, f := range v.Features {
 			features = append(features, dto.FeatureResponse{
 				ID:          f.ID,
-				VersionID:   f.VersionID,
 				FeatureName: f.FeatureName,
 				Enabled:     f.Enabled,
 			})
 		}
 		responses = append(responses, dto.VersionResponse{
 			ID:        v.ID,
-			Version:   v.Version,
+			Version:   v.Name,
 			CreatedAt: v.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt: v.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			Features:  features,
@@ -88,7 +94,7 @@ func (s *versionService) UpdateVersion(ctx context.Context, id uint, version str
 		return nil, err
 	}
 
-	v.Version = version
+	v.Name = version
 	err = s.repo.UpdateVersion(ctx, v)
 	if err != nil {
 		return nil, err
@@ -112,7 +118,6 @@ func (s *versionService) CreateFeature(ctx context.Context, versionID uint, feat
 	}
 
 	feature := &model.Feature{
-		VersionID:   versionID,
 		FeatureName: featureName,
 		Enabled:     enabled,
 	}
@@ -120,6 +125,13 @@ func (s *versionService) CreateFeature(ctx context.Context, versionID uint, feat
 	if err != nil {
 		return nil, err
 	}
+
+	// Associate with version
+	err = s.repo.AssociateFeatureWithVersion(ctx, versionID, feature.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	return feature, nil
 }
 
@@ -152,23 +164,45 @@ func (s *versionService) GetAllVersionAndPreviousVersionsByDevice(
 	ctx context.Context,
 	deviceID uint,
 ) (dto.VersionResponse, error) {
-	// versions, err := s.repo.GetCurrnetAllPreviousVersions(ctx, deviceID)
-	// if err != nil {
-	// 	return dto.VersionResponse{}, err
-	// }
+	versions, err := s.repo.GetCurrnetAllPreviousVersions(ctx, deviceID)
+	if err != nil {
+		return dto.VersionResponse{}, err
+	}
 
-	// var features []dto.FeatureResponse
-	// for _, v := range versions {
-	// 	for _, f := range v.Features {
-	// 		features = append(features, dto.FeatureResponse{
-	// 			ID:          f.ID,
-	// 			VersionID:   f.VersionID,
-	// 			FeatureName: f.FeatureName,
-	// 			Enabled:     f.Enabled,
-	// 		})
-	// 	}
-	// }
+	var features []dto.FeatureResponse
+	for _, v := range versions {
+		for _, f := range v.Features {
+			features = append(features, dto.FeatureResponse{
+				ID:          f.ID,
+				FeatureName: f.FeatureName,
+				Enabled:     f.Enabled,
+			})
+		}
+	}
 
-	// return response, nil
 	return dto.VersionResponse{}, nil
+}
+
+func (s *versionService) CreateNewDeviceVersion(
+	ctx context.Context,
+	deviceID uint,
+	previousVersion *uint,
+	version string,
+	features []int,
+) (*model.Version, error) {
+	if version == "" {
+		return nil, errors.New("version cannot be empty")
+	}
+
+	v := &model.Version{
+		Name:              version,
+		PreviousVersionID: previousVersion,
+		DeviceID:          deviceID,
+	}
+
+	createdVersion, err := s.repo.CreateNewDeviceVersion(ctx, *v, features)
+	if err != nil {
+		return nil, err
+	}
+	return createdVersion, nil
 }
