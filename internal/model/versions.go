@@ -3,13 +3,16 @@ package model
 import "time"
 
 // Our software has versioning and this will
-// help to keep which device is which
+// help to keep which device is which version
+
 type Version struct {
-	ID        uint      `json:"ID" gorm:"column:id;primaryKey;autoIncrement"`
-	Version   string    `json:"Version" gorm:"column:version;unique;not null"`
-	CreatedAt time.Time `json:"CreatedAt"`
-	UpdatedAt time.Time `json:"UpdatedAt"`
-	Features  []Feature `json:"Features" gorm:"foreignKey:VersionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	ID                uint      `json:"ID" gorm:"column:id;primaryKey;autoIncrement"`
+	Version           string    `json:"Version" gorm:"column:version;unique;not null"`
+	PreviousVersionID *uint     `json:"PreviousVersionID,omitempty" gorm:"column:previous_version_id;index;default:null"`
+	CreatedAt         time.Time `json:"CreatedAt"`
+	UpdatedAt         time.Time `json:"UpdatedAt"`
+	Features          []Feature `json:"Features" gorm:"foreignKey:VersionID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	PreviousVersion   *Version  `json:"PreviousVersion,omitempty" gorm:"foreignKey:PreviousVersionID"`
 }
 
 func (Version) TableName() string {

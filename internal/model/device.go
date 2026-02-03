@@ -72,9 +72,9 @@ type Device struct {
 	Version          Version           `gorm:"foreignKey:VersionID;references:ID"`
 	Readings         []Reading         `gorm:"foreignKey:DeviceID;references:ID"`
 	ConnectedDevices []ConnectedDevice `gorm:"foreignKey:ParentID;references:ID"`
-
-	CreatedBy uint `gorm:"column:created_by"`
-	UpdatedBy uint `gorm:"column:updated_by"`
+	DeviceState      DeviceState       `gorm:"foreignKey:CurrentState;references:ID"`
+	CreatedBy        uint              `gorm:"column:created_by"`
+	UpdatedBy        uint              `gorm:"column:updated_by"`
 
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`

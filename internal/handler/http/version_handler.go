@@ -17,7 +17,8 @@ func NewVersionHandler(versionService service.VersionService) *VersionHandler {
 }
 
 type createVersionRequest struct {
-	Version string `json:"version" binding:"required"`
+	PreviousVersion string `json:"previous_version,omitempty"`
+	Version         string `json:"version" binding:"required"`
 }
 
 type updateVersionRequest struct {
@@ -47,7 +48,6 @@ func (h *VersionHandler) CreateVersion(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusCreated, version)
 }
 
@@ -183,4 +183,21 @@ func (h *VersionHandler) DeleteFeature(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "feature deleted"})
+}
+
+func (h *VersionHandler) GetAllFeaturesByDevice(c *gin.Context) {
+	_, err := strconv.ParseUint(c.Param("id"), 10, 64)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	// features, err := h.versionService.GetAllFeaturesByDevice(c.Request.Context(), uint(deviceID))
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get features for device"})
+	// 	return
+	// }
+
+	c.JSON(http.StatusOK, gin.H{"features": nil})
 }

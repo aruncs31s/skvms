@@ -19,6 +19,7 @@ type Router struct {
 	deviceTypesHandler httpHandler.DeviceTypesHandler
 	versionHandler     *httpHandler.VersionHandler
 	deviceStateHandler *httpHandler.DeviceStateHandler
+	adminHandler       *httpHandler.AdminHandler
 	auditService       service.AuditService
 	deviceAuthService  service.DeviceAuthService
 	jwtSecret          string
@@ -35,6 +36,7 @@ func NewRouter(
 	deviceTypesHandler httpHandler.DeviceTypesHandler,
 	versionHandler *httpHandler.VersionHandler,
 	deviceStateHandler *httpHandler.DeviceStateHandler,
+	adminHandler *httpHandler.AdminHandler,
 	auditService service.AuditService,
 	deviceAuthService service.DeviceAuthService,
 	jwtSecret string,
@@ -49,6 +51,7 @@ func NewRouter(
 		deviceTypesHandler: deviceTypesHandler,
 		versionHandler:     versionHandler,
 		deviceStateHandler: deviceStateHandler,
+		adminHandler:       adminHandler,
 		auditService:       auditService,
 		deviceAuthService:  deviceAuthService,
 		jwtSecret:          jwtSecret,
@@ -136,6 +139,9 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 		// Audit routes
 		r.setupAuditRoutes(api)
 
+		// Admin routes
+		r.setupAdminRoutes(api)
+
 		// Version routes
 		r.setupVersionRoutes(api)
 
@@ -164,13 +170,16 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
 	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
 	api.DELETE("/devices/:id", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.DeleteDevice)
+
 	api.GET(
-		"/devices/:id/type",
-		r.deviceTypesHandler.GetHardwareType,
+		"/device/:id/features",
+		middleware.JWTAuth(r.jwtSecret),
+		r.versionHandler.GetAllFeaturesByDevice,
 	)
+
 	api.GET("/devices/my", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetMyDevices)
-	api.POST("/devices/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.AddConnectedDevice)
-	api.GET("/devices/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetConnectedDevices)
+
+	
 
 }
 
@@ -226,4 +235,10 @@ func (r *Router) setupVersionRoutes(api *gin.RouterGroup) {
 	api.GET("/features/version/:verid", middleware.JWTAuth(r.jwtSecret), r.versionHandler.GetFeaturesByVersion)
 	api.PUT("/features/:id", middleware.JWTAuth(r.jwtSecret), r.versionHandler.UpdateFeature)
 	api.DELETE("/features/:id", middleware.JWTAuth(r.jwtSecret), r.versionHandler.DeleteFeature)
+
+}
+
+// setupAdminRoutes configures admin related routes
+func (r *Router) setupAdminRoutes(api *gin.RouterGroup) {
+	api.GET("/admin/stats", middleware.JWTAuth(r.jwtSecret), r.adminHandler.GetStats)
 }

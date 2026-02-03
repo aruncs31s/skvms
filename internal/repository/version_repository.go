@@ -17,6 +17,8 @@ type VersionRepository interface {
 	GetFeaturesByVersion(ctx context.Context, versionID uint) ([]model.Feature, error)
 	UpdateFeature(ctx context.Context, feature *model.Feature) error
 	DeleteFeature(ctx context.Context, id uint) error
+	GetVersionByDeviceID(ctx context.Context, deviceID uint) (*model.Version, error)
+	GetCurrnetAllPreviousVersions(ctx context.Context, deviceID uint) ([]model.Version, error)
 }
 
 type versionRepository struct {
@@ -70,4 +72,31 @@ func (r *versionRepository) UpdateFeature(ctx context.Context, feature *model.Fe
 
 func (r *versionRepository) DeleteFeature(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.Feature{}, id).Error
+}
+
+func (r *versionRepository) GetVersionByDeviceID(ctx context.Context, deviceID uint) (*model.Version, error) {
+	var version model.Version
+	err := r.db.WithContext(ctx).
+		Joins("JOIN devices ON devices.version_id = versions.id").
+		Where("devices.id = ?", deviceID).
+		First(&version).Error
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
+}
+
+func (r *versionRepository) GetCurrnetAllPreviousVersions(ctx context.Context, deviceID uint) ([]model.Version, error) {
+	var versions []model.Version
+	err := r.db.WithContext(ctx).
+		Joins("JOIN devices ON devices.version_id = versions.id").
+		Where("devices.id = ?", deviceID).
+		Or("versions.id IN (?)",
+			r.db.Table("devices").Select("version_id").Where("devices.id = ?", deviceID),
+		).
+		Find(&versions).Error
+	if err != nil {
+		return nil, err
+	}
+	return versions, nil
 }

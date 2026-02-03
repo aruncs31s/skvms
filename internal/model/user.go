@@ -9,7 +9,8 @@ type User struct {
 	Username string `gorm:"column:username;unique" json:"username"`
 	Email    string `gorm:"column:email" json:"email"`
 	Password string `gorm:"column:passsword;not null" json:"-"`
-	Role     string `gorm:"column:role;default:'user'" json:"role"`
+
+	Role string `gorm:"column:role;default:'user'" json:"role"`
 
 	// Timestamps
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`

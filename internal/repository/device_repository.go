@@ -42,6 +42,8 @@ type DeviceRepository interface {
 	)
 	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
+	Count(ctx context.Context) (int64, error)
+	CountActive(ctx context.Context) (int64, error)
 }
 
 type deviceRepository struct {
@@ -60,6 +62,7 @@ func (r *deviceRepository) ListDevices(ctx context.Context) ([]dto.DeviceView, e
 		Joins("LEFT JOIN device_details ON device_details.device_id = d.id").
 		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
 		Joins("LEFT JOIN device_types dt ON dt.id = d.device_type").
+		Joins("LEFT JOIN device_states ds ON d.device_state  = ds.id").
 		Scan(&devices).Error
 	if err != nil {
 		return nil, err
@@ -89,7 +92,13 @@ func (r *deviceRepository) GetDeviceForUpdate(
 	id uint,
 ) (*model.Device, error) {
 	var device model.Device
-	err := tx.WithContext(ctx).
+	err := tx.
+		WithContext(ctx).
+		Preload("DeviceState").
+		Preload("Details").
+		Preload("Address").
+		Preload("DeviceType").
+		Preload("Version").
 		First(&device, id).Error
 	if err != nil {
 		return nil, err
@@ -103,6 +112,7 @@ func (r *deviceRepository) GetDeviceForUpdate(
 func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Device, error) {
 	var device model.Device
 	err := r.db.WithContext(ctx).
+		Preload("DeviceState").
 		Preload("Details").
 		Preload("Address").
 		Preload("DeviceType").
@@ -218,10 +228,22 @@ func (r *deviceRepository) GetConnectedDevices(ctx context.Context, parentID uin
 				MACAddress:      device.Details.MACAddress,
 				Address:         device.Address.Address,
 				City:            device.Address.City,
-				DeviceState:     device.CurrentState,
+				DeviceState:     device.DeviceState.Name,
 			}
 			devices = append(devices, dv)
 		}
 	}
 	return devices, nil
+}
+
+func (r *deviceRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Device{}).Count(&count).Error
+	return count, err
+}
+
+func (r *deviceRepository) CountActive(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Device{}).Where("current_state = ?", "active").Count(&count).Error
+	return count, err
 }

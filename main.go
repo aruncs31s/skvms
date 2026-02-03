@@ -68,6 +68,7 @@ func main() {
 	userService := service.NewUserService(userRepo, deviceService, auditService)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
+	adminService := service.NewAdminService(userRepo, deviceRepo, readingRepo, auditRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceAuthHandler := httpHandler.NewDeviceAuthHandler(deviceAuthService, auditService)
@@ -77,6 +78,7 @@ func main() {
 	userHandler := httpHandler.NewUserHandler(userService, auditService)
 	deviceTypesHandler := httpHandler.NewDeviceTypesHandler(deviceTypesService)
 	versionHandler := httpHandler.NewVersionHandler(versionService)
+	adminHandler := httpHandler.NewAdminHandler(adminService)
 	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, service.NewDeviceStateHistoryService(
 		repository.NewDeviceStateHistoryRepository(db),
 	), auditService)
@@ -92,6 +94,7 @@ func main() {
 		deviceTypesHandler,
 		versionHandler,
 		deviceStateHandler,
+		adminHandler,
 		auditService,
 		deviceAuthService,
 		cfg.JWTSecret,

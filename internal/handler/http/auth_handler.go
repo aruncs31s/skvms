@@ -19,9 +19,10 @@ func NewAuthHandler(authService service.AuthService, auditService service.AuditS
 	return &AuthHandler{authService: authService, auditService: auditService}
 }
 
+// TODO:  move to dto package
 type loginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
 }
 
 // Update the audit things
@@ -110,6 +111,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
+
 	if user == nil || token == "" {
 		logger.GetLogger().Warn("Invalid credentials attempt",
 			zap.String("username", req.Username),
@@ -136,6 +138,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"name":     user.Name,
 			"username": user.Username,
 			"email":    user.Email,
+			"role":     user.Role,
 		},
 	})
 }

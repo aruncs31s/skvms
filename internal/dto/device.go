@@ -4,13 +4,14 @@ type DeviceView struct {
 	ID              uint   `json:"id"`
 	Name            string `json:"name"`
 	Type            string `json:"type"`
+	Status          string `json:"status"`
 	IPAddress       string `json:"ip_address"`
 	MACAddress      string `json:"mac_address"`
 	FirmwareVersion string `json:"firmware_version"`
 	VersionID       uint   `json:"version_id"`
 	Address         string `json:"address"`
 	City            string `json:"city"`
-	DeviceState     uint   `json:"device_state"`
+	DeviceState     string `json:"device_state"`
 }
 
 type CreateDeviceRequest struct {

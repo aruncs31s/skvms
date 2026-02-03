@@ -19,6 +19,10 @@ type VersionService interface {
 	GetFeaturesByVersion(ctx context.Context, versionID uint) ([]model.Feature, error)
 	UpdateFeature(ctx context.Context, id uint, featureName string, enabled bool) (*model.Feature, error)
 	DeleteFeature(ctx context.Context, id uint) error
+	GetAllVersionAndPreviousVersionsByDevice(
+		ctx context.Context,
+		deviceID uint,
+	) (dto.VersionResponse, error)
 }
 
 type versionService struct {
@@ -142,4 +146,29 @@ func (s *versionService) UpdateFeature(ctx context.Context, id uint, featureName
 
 func (s *versionService) DeleteFeature(ctx context.Context, id uint) error {
 	return s.repo.DeleteFeature(ctx, id)
+}
+
+func (s *versionService) GetAllVersionAndPreviousVersionsByDevice(
+	ctx context.Context,
+	deviceID uint,
+) (dto.VersionResponse, error) {
+	// versions, err := s.repo.GetCurrnetAllPreviousVersions(ctx, deviceID)
+	// if err != nil {
+	// 	return dto.VersionResponse{}, err
+	// }
+
+	// var features []dto.FeatureResponse
+	// for _, v := range versions {
+	// 	for _, f := range v.Features {
+	// 		features = append(features, dto.FeatureResponse{
+	// 			ID:          f.ID,
+	// 			VersionID:   f.VersionID,
+	// 			FeatureName: f.FeatureName,
+	// 			Enabled:     f.Enabled,
+	// 		})
+	// 	}
+	// }
+
+	// return response, nil
+	return dto.VersionResponse{}, nil
 }

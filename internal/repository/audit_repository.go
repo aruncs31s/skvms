@@ -14,6 +14,7 @@ type AuditRepository interface {
 	) error
 	List(ctx context.Context, action string, limit int) ([]model.AuditLog, error)
 	ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error)
+	Count(ctx context.Context) (int64, error)
 }
 
 type auditRepository struct {
@@ -61,4 +62,10 @@ func (r *auditRepository) ListByUser(ctx context.Context, userID uint, limit int
 		Limit(limit).
 		Find(&logs).Error
 	return logs, err
+}
+
+func (r *auditRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.AuditLog{}).Count(&count).Error
+	return count, err
 }

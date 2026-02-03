@@ -87,7 +87,7 @@ func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView
 		MACAddress:      device.Details.MACAddress,
 		Address:         device.Address.Address,
 		City:            device.Address.City,
-		DeviceState:     device.CurrentState,
+		DeviceState:     device.DeviceState.Name,
 	}
 	return &dv, nil
 }
@@ -197,21 +197,33 @@ func (s *deviceService) CreateDevice(
 		Address: req.Address,
 		City:    req.City,
 	}
+	deviceState := model.DeviceState{
+		Name: "Active", // default state
+	}
+	device.DeviceState = deviceState
 	newDevice, err := s.repo.CreateDevice(ctx, device, details, address)
 	if err != nil {
 		return dto.DeviceView{}, err
 	}
 
+	loadedDevice, err := s.repo.GetDevice(ctx, newDevice.ID)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	if loadedDevice == nil {
+		return dto.DeviceView{}, fmt.Errorf("failed to retrieve created device")
+	}
+
 	return dto.DeviceView{
-		ID:              newDevice.ID,
-		Name:            newDevice.Name,
-		Type:            newDevice.DeviceType.Name,
+		ID:              loadedDevice.ID,
+		Name:            loadedDevice.Name,
+		Type:            loadedDevice.DeviceType.Name,
 		FirmwareVersion: v.Version,
-		IPAddress:       newDevice.Details.IPAddress,
-		MACAddress:      newDevice.Details.MACAddress,
-		Address:         newDevice.Address.Address,
-		City:            newDevice.Address.City,
-		DeviceState:     newDevice.CurrentState,
+		IPAddress:       loadedDevice.Details.IPAddress,
+		MACAddress:      loadedDevice.Details.MACAddress,
+		Address:         loadedDevice.Address.Address,
+		City:            loadedDevice.Address.City,
+		DeviceState:     loadedDevice.DeviceState.Name,
 	}, nil
 }
 

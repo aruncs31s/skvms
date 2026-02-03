@@ -35,6 +35,7 @@ type ReadingRepository interface {
 		startTime time.Time,
 		endTime time.Time,
 	) (map[string]interface{}, error)
+	Count(ctx context.Context) (int64, error)
 	ReadingWriter
 }
 type ReadingWriter interface {
@@ -218,4 +219,10 @@ func (r *readingRepository) Create(ctx context.Context, reading *model.Reading) 
 		return nil, err
 	}
 	return reading, nil
+}
+
+func (r *readingRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.Reading{}).Count(&count).Error
+	return count, err
 }

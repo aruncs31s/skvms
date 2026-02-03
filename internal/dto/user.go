@@ -8,11 +8,12 @@ type UserView struct {
 	Role     string `json:"role"`
 }
 
+// Username and Email Should Be unique , but only Username And Passowrd Are required
 type CreateUserRequest struct {
 	Name     string `json:"name"`
-	Username string `json:"username" `
+	Username string `json:"username" binding:"required"`
 	Email    string `json:"email"`
-	Password string `json:"password" `
+	Password string `json:"password" binding:"required"`
 	Role     string `json:"role"`
 }
 
