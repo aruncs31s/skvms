@@ -19,6 +19,12 @@ type VersionRepository interface {
 	DeleteFeature(ctx context.Context, id uint) error
 	GetVersionByDeviceID(ctx context.Context, deviceID uint) (*model.Version, error)
 	GetCurrnetAllPreviousVersions(ctx context.Context, deviceID uint) ([]model.Version, error)
+	CreateNewDeviceVersion(
+		ctx context.Context,
+		version model.Version,
+		features []int,
+	) (*model.Version, error)
+	AssociateFeatureWithVersion(ctx context.Context, versionID, featureID uint) error
 }
 
 type versionRepository struct {
@@ -61,9 +67,12 @@ func (r *versionRepository) CreateFeature(ctx context.Context, feature *model.Fe
 }
 
 func (r *versionRepository) GetFeaturesByVersion(ctx context.Context, versionID uint) ([]model.Feature, error) {
-	var features []model.Feature
-	err := r.db.WithContext(ctx).Where("version_id = ?", versionID).Find(&features).Error
-	return features, err
+	var version model.Version
+	err := r.db.WithContext(ctx).Preload("Features").First(&version, versionID).Error
+	if err != nil {
+		return nil, err
+	}
+	return version.Features, nil
 }
 
 func (r *versionRepository) UpdateFeature(ctx context.Context, feature *model.Feature) error {
@@ -99,4 +108,56 @@ func (r *versionRepository) GetCurrnetAllPreviousVersions(ctx context.Context, d
 		return nil, err
 	}
 	return versions, nil
+}
+
+func (r *versionRepository) CreateNewDeviceVersion(
+	ctx context.Context,
+	version model.Version,
+	features []int,
+) (*model.Version, error) {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&version).Error; err != nil {
+			return err
+		}
+
+		// Query existing features
+		var allFeatures []model.Feature
+		if len(features) > 0 {
+			err := tx.Model(&model.Feature{}).
+				Where("id IN ?", features).
+				Find(&allFeatures).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		// Associate features with the new version via many-to-many
+		if err := tx.Model(&version).Association("Features").Append(allFeatures); err != nil {
+			return err
+		}
+
+		if err := tx.Model(&model.Device{}).
+			Where("id = ?", version.DeviceID).
+			Update("version_id", version.ID).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &version, nil
+}
+
+func (r *versionRepository) AssociateFeatureWithVersion(ctx context.Context, versionID, featureID uint) error {
+	var version model.Version
+	var feature model.Feature
+	if err := r.db.WithContext(ctx).First(&version, versionID).Error; err != nil {
+		return err
+	}
+	if err := r.db.WithContext(ctx).First(&feature, featureID).Error; err != nil {
+		return err
+	}
+	return r.db.WithContext(ctx).Model(&version).Association("Features").Append(&feature)
 }

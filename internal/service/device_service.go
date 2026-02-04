@@ -33,6 +33,7 @@ type DeviceService interface {
 		req *dto.CreateDeviceRequest,
 	) (dto.DeviceView, error)
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
+	FullUpdateDevice(ctx context.Context, id uint, req *dto.FullUpdateDeviceRequest, updatedBy uint) error
 	DeleteDevice(ctx context.Context, id uint) error
 	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
@@ -60,8 +61,46 @@ func NewDeviceService(
 	}
 }
 
+func (s *deviceService) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
+	return dto.DeviceView{
+		ID:              d.ID,
+		Name:            d.Name,
+		Type:            d.DeviceType.Name,
+		HardwareType:    d.DeviceType.HardwareType.String(),
+		Status:          d.DeviceState.Name,
+		IPAddress:       d.Details.IPAddress,
+		MACAddress:      d.Details.MACAddress,
+		FirmwareVersion: d.Version.Name,
+		Address:         d.Address.Address,
+		City:            d.Address.City,
+	}
+}
+
 func (s *deviceService) ListDevices(ctx context.Context) ([]dto.DeviceView, error) {
-	return s.repo.ListDevices(ctx)
+	devices, err := s.repo.ListDevices(ctx)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+func (s *deviceService) mapToDeviceModelViewToView(d model.DeviceView) dto.DeviceView {
+	return dto.DeviceView{
+		ID:              d.ID,
+		Name:            d.Name,
+		Type:            d.Type,
+		HardwareType:    d.HardwareType.String(),
+		IPAddress:       d.IPAddress,
+		MACAddress:      d.MACAddress,
+		FirmwareVersion: d.FirmwareVersion,
+		Address:         d.Address,
+		City:            d.City,
+		// Their State is the status
+		Status: d.DeviceState,
+	}
 }
 
 func (s *deviceService) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
@@ -78,17 +117,7 @@ func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView
 		return nil, err
 	}
 
-	dv := dto.DeviceView{
-		ID:              device.ID,
-		Name:            device.Name,
-		Type:            device.DeviceType.Name,
-		FirmwareVersion: device.Version.Version,
-		IPAddress:       device.Details.IPAddress,
-		MACAddress:      device.Details.MACAddress,
-		Address:         device.Address.Address,
-		City:            device.Address.City,
-		DeviceState:     device.DeviceState.Name,
-	}
+	dv := s.mapDeviceToDeviceView(*device)
 	return &dv, nil
 }
 
@@ -184,23 +213,19 @@ func (s *deviceService) CreateDevice(
 		Name:         req.Name,
 		DeviceTypeID: req.Type,
 		VersionID:    req.FirmwareVersionID,
+		CurrentState: 1, // Default to Active
 		CreatedBy:    userID,
 		UpdatedBy:    userID,
 	}
 	details := &model.DeviceDetails{
-		IPAddress:       req.IPAddress,
-		MACAddress:      req.MACAddress,
-		FirmwareVersion: v.ID,
+		IPAddress:  req.IPAddress,
+		MACAddress: req.MACAddress,
 	}
 
 	address := &model.DeviceAddress{
 		Address: req.Address,
 		City:    req.City,
 	}
-	deviceState := model.DeviceState{
-		Name: "Active", // default state
-	}
-	device.DeviceState = deviceState
 	newDevice, err := s.repo.CreateDevice(ctx, device, details, address)
 	if err != nil {
 		return dto.DeviceView{}, err
@@ -214,17 +239,7 @@ func (s *deviceService) CreateDevice(
 		return dto.DeviceView{}, fmt.Errorf("failed to retrieve created device")
 	}
 
-	return dto.DeviceView{
-		ID:              loadedDevice.ID,
-		Name:            loadedDevice.Name,
-		Type:            loadedDevice.DeviceType.Name,
-		FirmwareVersion: v.Version,
-		IPAddress:       loadedDevice.Details.IPAddress,
-		MACAddress:      loadedDevice.Details.MACAddress,
-		Address:         loadedDevice.Address.Address,
-		City:            loadedDevice.Address.City,
-		DeviceState:     loadedDevice.DeviceState.Name,
-	}, nil
+	return s.mapDeviceToDeviceView(*loadedDevice), nil
 }
 
 func (s *deviceService) UpdateDevice(
@@ -258,12 +273,7 @@ func (s *deviceService) UpdateDevice(
 
 	// Update firmware version if provided
 	if req.FirmwareVersionID != nil {
-		version, err := s.repo.FindVersionByID(ctx, *req.FirmwareVersionID)
-		if err != nil {
-			return err
-		}
 		existing.VersionID = *req.FirmwareVersionID
-		existing.Details.FirmwareVersion = version.ID
 	}
 
 	// Update address fields if provided
@@ -273,6 +283,41 @@ func (s *deviceService) UpdateDevice(
 	if req.City != nil {
 		existing.Address.City = *req.City
 	}
+
+	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
+}
+
+func (s *deviceService) FullUpdateDevice(
+	ctx context.Context,
+	id uint,
+	req *dto.FullUpdateDeviceRequest,
+	updatedBy uint,
+) error {
+	existing, err := s.repo.GetDevice(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil {
+		return fmt.Errorf("device not found")
+	}
+
+	// Update all device fields
+	existing.Name = req.Name
+	existing.DeviceTypeID = req.Type
+	existing.CurrentState = req.CurrentState
+	existing.UpdatedBy = updatedBy
+
+	// Update details
+	existing.Details.IPAddress = req.IPAddress
+	existing.Details.MACAddress = req.MACAddress
+
+	// Update firmware version
+
+	existing.VersionID = req.FirmwareVersionID
+
+	// Update address
+	existing.Address.Address = req.Address
+	existing.Address.City = req.City
 
 	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
 }

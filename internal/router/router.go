@@ -169,6 +169,7 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	api.POST("/devices/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
 	api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
 	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
+	api.PUT("/devices/:id/full", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_full_update"), r.deviceHandler.FullUpdateDevice)
 	api.DELETE("/devices/:id", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.DeleteDevice)
 
 	api.GET(
@@ -176,10 +177,15 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 		middleware.JWTAuth(r.jwtSecret),
 		r.versionHandler.GetAllFeaturesByDevice,
 	)
-
+	api.GET(
+		"/devices/:id/versions",
+		r.versionHandler.GetVersionsByDevice,
+	)
+	api.POST(
+		"/devices/:id/versions",
+		r.versionHandler.CreateNewDeviceVersion,
+	)
 	api.GET("/devices/my", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetMyDevices)
-
-	
 
 }
 

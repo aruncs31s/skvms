@@ -21,7 +21,6 @@ type VersionResponse struct {
 
 type FeatureResponse struct {
 	ID          uint   `json:"ID"`
-	VersionID   uint   `json:"VersionID"`
 	FeatureName string `json:"FeatureName"`
 	Enabled     bool   `json:"Enabled"`
 }

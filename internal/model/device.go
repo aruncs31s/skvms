@@ -64,7 +64,7 @@ type Device struct {
 
 	// 1= Active, 0 = Inactive , 2 = Maintenance, 3 = Decommissioned
 	// Also FK to DeviceState.ID
-	CurrentState uint `gorm:"column:device_state"`
+	CurrentState uint `gorm:"column:current_state;index"`
 
 	Details          DeviceDetails     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Address          DeviceAddress     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
