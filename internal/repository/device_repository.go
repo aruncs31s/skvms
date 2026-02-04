@@ -117,7 +117,8 @@ func (r *deviceRepository) ListDevices(
 ) {
 	var devices []model.DeviceView
 
-	query := r.db.Table("devices as d")
+	query := r.db.
+		Table("devices as d")
 	query.Select([]string{
 		"d.id",
 		"d.name",
@@ -308,13 +309,13 @@ func (r *deviceRepository) GetConnectedDevicesByHardwareType(
 	// This will be the solar charger id
 	parentID uint,
 	// Right now only supports connecting one device.
+	hardwareType model.HardwareType,
 ) (dto.DeviceView, error) {
 	var connected model.ConnectedDevice
-	err := r.
-		db.
-		WithContext(ctx).
-		Preload("Device").
-		Where("parent_id = ? , ", parentID).
+	err := r.db.WithContext(ctx).
+		Joins("JOIN devices d ON connected_devices.child_id = d.id").
+		Joins("JOIN device_types dt ON d.device_type = dt.id").
+		Where("connected_devices.parent_id = ? AND dt.hardware_type = ?", parentID, hardwareType).
 		First(&connected).Error
 
 	if err != nil {
@@ -322,10 +323,13 @@ func (r *deviceRepository) GetConnectedDevicesByHardwareType(
 	}
 
 	device, err := r.GetDevice(ctx, connected.ChildID)
-	var dv dto.DeviceView
-	if device != nil {
-		dv = r.mapDeviceToDeviceView(*device)
+	if err != nil {
+		return dto.DeviceView{}, err
 	}
+	if device == nil {
+		return dto.DeviceView{}, gorm.ErrRecordNotFound
+	}
+	dv := r.mapDeviceToDeviceView(*device)
 	return dv, nil
 }
 func (r *deviceRepository) Count(ctx context.Context) (int64, error) {
@@ -339,20 +343,6 @@ func (r *deviceRepository) CountActive(ctx context.Context) (int64, error) {
 	err := r.db.WithContext(ctx).Model(&model.Device{}).Where("current_state = ?", "active").Count(&count).Error
 	return count, err
 }
-
-type DeviceView struct {
-	ID              uint         `gorm:"column:id"`
-	Name            string       `gorm:"column:name"`
-	Type            string       `gorm:"column:type"`
-	HardwareType    HardwareType `gorm:"column:hardware_type"`
-	IPAddress       string       `gorm:"column:ip_address"`
-	MACAddress      string       `gorm:"column:mac_address"`
-	FirmwareVersion string       `gorm:"column:firmware_version"`
-	Address         string       `gorm:"column:address"`
-	City            string       `gorm:"column:city"`
-	DeviceState     string       `gorm:"column:current_state"`
-}
-
 func (r *deviceRepository) GetDevicesByHardwareType(
 	ctx context.Context,
 	hardwareType model.HardwareType,
@@ -379,7 +369,7 @@ func (r *deviceRepository) GetDevicesByHardwareType(
 		Joins("JOIN versions v ON v.id = d.version_id")
 
 	query.Where(
-		"dt.harware_type ? =", hardwareType,
+		"dt.hardware_type  = ?", hardwareType,
 	)
 	err := query.Scan(&devices).Error
 	if err != nil {

@@ -147,6 +147,8 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 
 		// Reading routes (device authenticated)
 		r.setupReadingRoutes(api, deviceAuthMiddleware)
+		// Solar device routes
+		r.setupSolarRoutes(api)
 	}
 }
 

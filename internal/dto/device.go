@@ -1,8 +1,9 @@
 package dto
 
 type DeviceView struct {
-	ID              uint   `json:"id"`
-	Name            string `json:"name"`
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	// Like For Current Sensor We Have CT and Hall Effect
 	Type            string `json:"type"`
 	HardwareType    string `json:"hardware_type"`
 	Status          string `json:"status"`
@@ -12,16 +13,7 @@ type DeviceView struct {
 	Address         string `json:"address"`
 	City            string `json:"city"`
 }
-type SolarDeviceView struct {
-	ID                uint    `json:"id"`
-	Name              string  `json:"name"`
-	ChargingCurrent   float64 `json:"charging_current"`
-	BatteryVoltage    float64 `json:"battery_voltage"`
-	LedStatus         string  `json:"led_status"`
-	ConnectedDeviceIP string  `json:"connected_device_ip"`
-	Address           string  `json:"address"`
-	City              string  `json:"city"`
-}
+
 type CreateDeviceRequest struct {
 	Name              string `json:"name" binding:"required"`
 	UID               string `json:"uid" binding:"required"`

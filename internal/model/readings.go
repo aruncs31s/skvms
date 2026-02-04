@@ -2,6 +2,7 @@ package model
 
 import "time"
 
+// The HardwareTypeVoltageMeter measures voltage and current readings
 type Reading struct {
 	ID       uint    `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
 	DeviceID uint    `gorm:"column:device_id;index;not null" json:"device_id"`

@@ -1,7 +1,32 @@
 package router
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/aruncs31s/skvms/internal/database"
+	"github.com/aruncs31s/skvms/internal/handler/http"
+	"github.com/aruncs31s/skvms/internal/handler/middleware"
+	"github.com/aruncs31s/skvms/internal/repository"
+	"github.com/aruncs31s/skvms/internal/service"
+	"github.com/gin-gonic/gin"
+)
 
-func setupSolarRoutes(r *gin.RouterGroup) {
-
+// Apply DI or move this to somewhere else
+func (r *Router) setupSolarRoutes(api *gin.RouterGroup) {
+	solar := api.Group("/devices/solar")
+	solarHandler := http.NewSolarHandler(
+		service.NewSolarService(
+			repository.NewSolarRepository(
+				repository.NewDeviceRepository(
+					database.DB,
+				),
+				repository.NewReadingRepository(
+					database.DB,
+				),
+			),
+			repository.NewUserRepository(database.DB),
+			repository.NewDeviceRepository(database.DB),
+			repository.NewDeviceStateRepository(database.DB),
+		),
+	)
+	solar.GET("", middleware.JWTAuth(r.jwtSecret), solarHandler.GetAllSolarDevices)
+	solar.POST("", middleware.JWTAuth(r.jwtSecret), solarHandler.CreateASolarDevice)
 }

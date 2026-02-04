@@ -56,9 +56,11 @@ var DeviceStateActionResult = map[uint]map[DeviceAction]uint{
 type Device struct {
 	ID   uint   `gorm:"column:id;primaryKey;autoIncrement"`
 	Name string `gorm:"column:name"`
+
 	// 1 -  , 2 - Sensor
 	// FK to DeviceTypes.ID
 	DeviceTypeID uint `gorm:"column:device_type"`
+
 	// FK to Version.ID
 	VersionID uint `gorm:"column:version_id"`
 
@@ -85,14 +87,16 @@ func (Device) TableName() string {
 	return "devices"
 }
 
+
+
+
 // Possible States for a device
 // Different types of devices can have different states
 // Every state must be a cause of some action and all the actions must be defined in DeviceActionsMap
 type DeviceState struct {
-	ID           uint      `gorm:"column:id;primaryKey"`
-	Name         string    `gorm:"column:name"`
-	DeviceTypeID uint      `gorm:"column:device_type_id"`
-	CreatedAt    time.Time `gorm:"column:created_at;autoCreateTime"`
+	ID        uint      `gorm:"column:id;primaryKey"`
+	Name      string    `gorm:"column:name"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 
 func (DeviceState) TableName() string {

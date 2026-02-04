@@ -130,6 +130,10 @@ func seedDeviceStates(db *gorm.DB) error {
 			ID:   4,
 			Name: "Decommissioned",
 		},
+		{
+			ID:   5,
+			Name: "Initialized",
+		},
 	}
 
 	for _, ds := range deviceStates {
@@ -137,8 +141,8 @@ func seedDeviceStates(db *gorm.DB) error {
 		err := db.Where("id = ?", ds.ID).First(&existing).Error
 		if err == gorm.ErrRecordNotFound {
 			// Create new record with explicit ID
-			if err := db.Exec("INSERT INTO device_states (id, name, device_type_id, created_at) VALUES (?, ?, ?, ?)",
-				ds.ID, ds.Name, 0, time.Now()).Error; err != nil {
+			if err := db.Exec("INSERT INTO device_states (id, name, created_at) VALUES (?, ?, ?)",
+				ds.ID, ds.Name, time.Now()).Error; err != nil {
 				return err
 			}
 		} else if err != nil {

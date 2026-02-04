@@ -11,6 +11,7 @@ const (
 	HardwareTypeSensor
 	// The Solar type is for the mppt controllers
 	HardwareTypeSolar
+	HardwareTypeVoltageMeter
 )
 
 var HardwareTypeMap = map[HardwareType]string{

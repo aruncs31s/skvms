@@ -65,7 +65,7 @@ func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, lim
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ?", deviceID).
-		Order("created_at ASC").
+		Order("created_at DESC").
 		Limit(limit).
 		Find(&readings).Error
 	if err != nil {
@@ -111,7 +111,7 @@ func (r *readingRepository) ListByDeviceWithInterval(ctx context.Context, device
 
 		query = query.Where(strings.Join(conditions, " OR "), args...)
 
-		err := query.Order("created_at ASC").Find(&readings).Error
+		err := query.Order("created_at DESC").Find(&readings).Error
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, device
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
-		Order("created_at ASC").
+		Order("created_at DESC").
 		Find(&readings).Error
 	if err != nil {
 		return nil, err
