@@ -9,6 +9,8 @@ const (
 	HardwareTypeMicroController
 	HardwareTypeSingleBoardComputer
 	HardwareTypeSensor
+	// The Solar type is for the mppt controllers
+	HardwareTypeSolar
 )
 
 var HardwareTypeMap = map[HardwareType]string{
@@ -35,9 +37,9 @@ func (h HardwareType) String() string {
 
 type DeviceTypes struct {
 	ID   uint   `gorm:"column:id;primaryKey;autoIncrement"`
-	Name string `gorm:"column:type_name;uniqueIndex"`
+	Name string `gorm:"column:name;uniqueIndex"`
 
-	// 0: Unkown , 1: MicroController , 2: SingleBoardComputer, 3: Sensors
+	// 0: Unkown , 1: MicroController , 2: SingleBoardComputer, 3: Sensors , 4: Solar
 	HardwareType HardwareType `gorm:"column:hardware_type"`
 
 	CreatedBy uint `gorm:"column:created_by"`

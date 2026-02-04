@@ -339,7 +339,7 @@ func seedReadings(db *gorm.DB) error {
 
 	now := time.Now()
 	daysInYear := 365
-	readingsPerDay := 1000
+	readingsPerDay := 10
 
 	// Batch insert for better performance
 	batchSize := 500
