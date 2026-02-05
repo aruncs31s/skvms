@@ -24,6 +24,7 @@ type DeviceTypesService interface {
 		userID uint,
 	) error
 	GetAllHardwareTypes(ctx context.Context) ([]dto.GenericDropdown, error)
+	GetAllSensorTypes(ctx context.Context) ([]dto.GenericDropdown, error)
 }
 type deviceTypesService struct {
 	deviceTypesRepo repository.DeviceTypesRepository
@@ -102,6 +103,18 @@ func (s *deviceTypesService) GetAllHardwareTypes(ctx context.Context) ([]dto.Gen
 		dropdown := dto.GenericDropdown{
 			ID:   uint(key),
 			Name: hwType,
+		}
+		dropdowns = append(dropdowns, dropdown)
+	}
+	return dropdowns, nil
+}
+
+func (s *deviceTypesService) GetAllSensorTypes(ctx context.Context) ([]dto.GenericDropdown, error) {
+	var dropdowns []dto.GenericDropdown
+	for _, sensorType := range model.GetAllSensorTypes() {
+		dropdown := dto.GenericDropdown{
+			ID:   uint(sensorType),
+			Name: sensorType.String(),
 		}
 		dropdowns = append(dropdowns, dropdown)
 	}

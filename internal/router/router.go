@@ -149,6 +149,8 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 		r.setupReadingRoutes(api, deviceAuthMiddleware)
 		// Solar device routes
 		r.setupSolarRoutes(api)
+		// Sensor routes
+		r.setupSensorRoutes(api)
 	}
 }
 
@@ -167,7 +169,9 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	api.GET("/devices/types", r.deviceTypesHandler.ListDeviceTypes)
 	api.POST("/devices/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
 	api.GET("/devices/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
+	api.GET("/devices/types/sensors", r.deviceTypesHandler.GetSensorType)
 	api.GET("/devices/:id", r.deviceHandler.GetDevice)
+	api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
 	api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
 	api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
 	api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
@@ -193,6 +197,7 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	api.GET("/devices/my", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetMyDevices)
 	api.GET("/devices/search", r.deviceHandler.SearchDevices)
 	api.GET("/devices/search/microcontrollers", r.deviceHandler.SearchMicrocontollerDevices)
+	api.GET("/devices/search/sensors", r.deviceHandler.SearchSensorDevices)
 
 }
 
@@ -254,4 +259,14 @@ func (r *Router) setupVersionRoutes(api *gin.RouterGroup) {
 // setupAdminRoutes configures admin related routes
 func (r *Router) setupAdminRoutes(api *gin.RouterGroup) {
 	api.GET("/admin/stats", middleware.JWTAuth(r.jwtSecret), r.adminHandler.GetStats)
+}
+func (r *Router) setupSensorRoutes(api *gin.RouterGroup) {
+	sensorAPI := api.Group("devices/sensors")
+	{
+		sensorAPI.GET("", r.deviceHandler.ListAllSensors)
+		sensorAPI.POST("", r.deviceHandler.CreateSensorDevice)
+		sensorAPI.GET("/:id", r.deviceHandler.GetSensorDevice)
+		sensorAPI.GET("/:id/connected", r.deviceHandler.GetConnectedDevices)
+		sensorAPI.GET("/search", r.deviceHandler.SearchSensorDevices)
+	}
 }

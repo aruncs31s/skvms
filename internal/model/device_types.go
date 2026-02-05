@@ -29,6 +29,15 @@ var HardwareTypeMap = map[HardwareType]string{
 	HardwareTypeActuator:            "Actuator",
 }
 
+func GetAllSensorTypes() []HardwareType {
+	return []HardwareType{
+		HardwareTypeSensor,
+		HardwareTypeVoltageMeter,
+		HardwareTypeCurrentSensor,
+		HardwareTypePowerMeter,
+	}
+}
+
 func (h HardwareType) CanControl() bool {
 	switch h {
 	case HardwareTypeMicroController, HardwareTypeSingleBoardComputer:

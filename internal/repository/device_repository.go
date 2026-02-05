@@ -70,6 +70,15 @@ type DeviceRepository interface {
 		query string,
 		hardwareType model.HardwareType,
 	) ([]dto.GenericDropdown, error)
+	SearchDevicesByHardwareTypes(
+		ctx context.Context,
+		query string,
+		hardwareType []model.HardwareType,
+	) ([]dto.GenericDropdown, error)
+	ListDevicesByHardwareTypes(
+		ctx context.Context,
+		hardwareTypes []model.HardwareType,
+	) ([]model.DeviceView, error)
 	DeviceReader
 }
 type SolarReader interface {
@@ -473,4 +482,54 @@ func (r *deviceRepository) SearchDevicesByHardwareType(
 		Where("d.name LIKE ? AND dt.hardware_type = ?", "%"+query+"%", hardwareType).
 		Scan(&results).Error
 	return results, err
+}
+func (r *deviceRepository) SearchDevicesByHardwareTypes(
+	ctx context.Context,
+	query string,
+	hardwareType []model.HardwareType,
+) ([]dto.GenericDropdown, error) {
+	var results []dto.GenericDropdown
+	err := r.db.
+		WithContext(ctx).
+		Table(model.Device{}.TableName()+" d").
+		Select("d.id, d.name").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Where("d.name LIKE ? AND dt.hardware_type IN ?", "%"+query+"%", hardwareType).
+		Scan(&results).Error
+	return results, err
+}
+
+func (r *deviceRepository) ListDevicesByHardwareTypes(
+	ctx context.Context,
+	hardwareTypes []model.HardwareType,
+) ([]model.DeviceView, error) {
+	var devices []model.DeviceView
+
+	query := r.db.
+		WithContext(ctx).
+		Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"device_address.address",
+		"device_address.city",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d.version_id").
+		Where("dt.hardware_type IN ?", hardwareTypes)
+
+	err := query.Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return devices, nil
 }

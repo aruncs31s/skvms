@@ -297,7 +297,9 @@ func (h *DeviceHandler) GetConnectedDevices(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get connected devices"})
 		return
 	}
-
+	if len(devices) == 0 {
+		devices = []dto.DeviceView{}
+	}
 	c.JSON(http.StatusOK, gin.H{"connected_devices": devices})
 }
 
@@ -331,4 +333,97 @@ func (h *DeviceHandler) SearchMicrocontollerDevices(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, results)
+}
+func (h *DeviceHandler) SearchSensorDevices(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' is required"})
+		return
+	}
+
+	results, err := h.deviceService.SearchSensors(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to search devices"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
+func (h *DeviceHandler) ListAllSensors(c *gin.Context) {
+	sensors, err := h.deviceService.ListAllSensors(c.Request.Context())
+	if err != nil {
+		logger.GetLogger().Error("Failed to list sensors",
+			zap.Error(err),
+			zap.String("ip", c.ClientIP()),
+		)
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to load sensors",
+				"details": err.Error(),
+			})
+		return
+	}
+
+	c.JSON(http.StatusOK, sensors)
+}
+
+func (h *DeviceHandler) GetSensorDevice(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	sensor, err := h.deviceService.GetSensorDevice(c.Request.Context(), uint(id))
+	if err != nil {
+		logger.GetLogger().Error("Failed to get sensor device",
+			zap.Error(err),
+			zap.String("ip", c.ClientIP()),
+			zap.Uint("device_id", uint(id)),
+		)
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to get sensor device",
+				"details": err.Error(),
+			})
+		return
+	}
+
+	c.JSON(http.StatusOK, sensor)
+}
+
+func (h *DeviceHandler) CreateSensorDevice(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	var req dto.CreateDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	sensor, err := h.deviceService.CreateSensorDevice(c.Request.Context(), userID.(uint), &req)
+	if err != nil {
+		logger.GetLogger().Error("Failed to create sensor device",
+			zap.Error(err),
+			zap.String("ip", c.ClientIP()),
+			zap.Uint("user_id", userID.(uint)),
+		)
+		c.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error":   "failed to create sensor device",
+				"details": err.Error(),
+			})
+		return
+	}
+
+	c.JSON(http.StatusCreated, sensor)
 }

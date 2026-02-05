@@ -12,6 +12,7 @@ type DeviceTypesHandler interface {
 	ListDeviceTypes(c *gin.Context)
 	GetHardwareType(c *gin.Context)
 	CreateDeviceType(c *gin.Context)
+	GetSensorType(c *gin.Context)
 }
 
 type deviceTypesHandler struct {
@@ -47,6 +48,22 @@ func (h *deviceTypesHandler) ListDeviceTypes(c *gin.Context) {
 func (h *deviceTypesHandler) GetHardwareType(c *gin.Context) {
 
 	deviceType, err := h.deviceTypesService.GetAllHardwareTypes(
+		c.Request.Context(),
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to load device type"})
+		return
+	}
+	if deviceType == nil {
+		c.JSON(404, gin.H{"error": "device type not found"})
+		return
+	}
+	c.JSON(200, gin.H{"device_type": deviceType})
+}
+
+func (h *deviceTypesHandler) GetSensorType(c *gin.Context) {
+
+	deviceType, err := h.deviceTypesService.GetAllSensorTypes(
 		c.Request.Context(),
 	)
 	if err != nil {

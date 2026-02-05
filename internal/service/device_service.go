@@ -39,6 +39,10 @@ type DeviceService interface {
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
 	SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error)
 	SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	SearchSensors(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	ListAllSensors(ctx context.Context) ([]dto.DeviceView, error)
+	GetSensorDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
+	CreateSensorDevice(ctx context.Context, userID uint, req *dto.CreateDeviceRequest) (dto.DeviceView, error)
 }
 
 type deviceService struct {
@@ -386,4 +390,72 @@ func (s *deviceService) SearchMicrocontrollers(ctx context.Context, query string
 		return []dto.GenericDropdown{}, nil
 	}
 	return devices, nil
+}
+func (s *deviceService) SearchSensors(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	devices, err := s.repo.SearchDevicesByHardwareTypes(
+		ctx,
+		query,
+		[]model.HardwareType{
+			model.HardwareTypeSensor,
+			model.HardwareTypeCurrentSensor,
+			model.HardwareTypePowerMeter,
+			model.HardwareTypeVoltageMeter,
+		},
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.GenericDropdown{}, nil
+	}
+	return devices, nil
+}
+
+func (s *deviceService) ListAllSensors(ctx context.Context) ([]dto.DeviceView, error) {
+	devices, err := s.repo.ListDevicesByHardwareTypes(
+		ctx,
+		[]model.HardwareType{
+			model.HardwareTypeSensor,
+			model.HardwareTypeCurrentSensor,
+			model.HardwareTypePowerMeter,
+			model.HardwareTypeVoltageMeter,
+		},
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, nil
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+
+func (s *deviceService) GetSensorDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
+	device, err := s.repo.GetDevice(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// Check if it's a sensor type
+	sensorTypes := []model.HardwareType{
+		model.HardwareTypeSensor,
+		model.HardwareTypeCurrentSensor,
+		model.HardwareTypePowerMeter,
+		model.HardwareTypeVoltageMeter,
+	}
+	isSensor := false
+	for _, t := range sensorTypes {
+		if device.DeviceType.HardwareType == t {
+			isSensor = true
+			break
+		}
+	}
+	if !isSensor {
+		return nil, fmt.Errorf("device is not a sensor")
+	}
+	dto := s.mapDeviceToDeviceView(*device)
+	return &dto, nil
+}
+
+func (s *deviceService) CreateSensorDevice(ctx context.Context, userID uint, req *dto.CreateDeviceRequest) (dto.DeviceView, error) {
+	// For now, just create the device, assuming the type is sensor
+	// In future, could validate the device type is sensor
+	return s.CreateDevice(ctx, userID, req)
 }
