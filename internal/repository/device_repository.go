@@ -80,6 +80,7 @@ type DeviceRepository interface {
 		hardwareTypes []model.HardwareType,
 	) ([]model.DeviceView, error)
 	DeviceReader
+	IsParent(ctx context.Context, parentID uint, childID uint) (bool, error)
 }
 type SolarReader interface {
 	DeviceReader
@@ -257,13 +258,15 @@ func (r *deviceRepository) CreateDevice(
 		if err := tx.Create(detailsStruct).Error; err != nil {
 			return err
 		}
-		addressStruct := &model.DeviceAddress{
-			DeviceID: device.ID,
-			Address:  address.Address,
-			City:     address.City,
-		}
-		if err := tx.Create(addressStruct).Error; err != nil {
-			return err
+		if address != nil {
+			addressStruct := &model.DeviceAddress{
+				DeviceID: device.ID,
+				Address:  address.Address,
+				City:     address.City,
+			}
+			if err := tx.Create(addressStruct).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -271,7 +274,9 @@ func (r *deviceRepository) CreateDevice(
 		return nil, err
 	}
 	device.Details = *details
-	device.Address = *address
+	if address != nil {
+		device.Address = *address
+	}
 
 	return device, nil
 }
@@ -589,4 +594,15 @@ func (r *deviceRepository) GetDevicesByHardwareTypeAndUserID(
 		return nil, err
 	}
 	return &devices, nil
+}
+func (r *deviceRepository) IsParent(ctx context.Context, parentID uint, childID uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.ConnectedDevice{}).
+		Where("parent_id = ? AND child_id = ?", parentID, childID).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

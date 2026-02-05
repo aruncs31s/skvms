@@ -41,6 +41,13 @@ type ReadingRepository interface {
 		ctx context.Context,
 		deviceID uint,
 	) (*model.Reading, error)
+
+	GetReadingsOfConnectedDevice(
+		ctx context.Context,
+		childDeviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+	) ([]model.Reading, model.Reading, error)
 }
 type ReadingWriter interface {
 	Create(
@@ -240,4 +247,31 @@ func (r *readingRepository) GetLastReading(ctx context.Context, deviceID uint) (
 		return nil, err
 	}
 	return &reading, nil
+}
+
+func (r *readingRepository) GetReadingsOfConnectedDevice(
+	ctx context.Context,
+	childDeviceID uint,
+	startTime time.Time,
+	endTime time.Time,
+) ([]model.Reading, model.Reading, error) {
+
+	lastReadings, err := r.GetLastReading(
+		ctx,
+		childDeviceID,
+	)
+	if err != nil {
+		return nil, model.Reading{}, err
+	}
+	readings, err := r.ListByDeviceAndDateRange(
+		ctx,
+		childDeviceID,
+		startTime,
+		endTime,
+	)
+	if err != nil {
+		return nil, model.Reading{}, err
+	}
+
+	return readings, *lastReadings, nil
 }

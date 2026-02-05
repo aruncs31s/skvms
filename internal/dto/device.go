@@ -26,6 +26,13 @@ type CreateDeviceRequest struct {
 	City              string `json:"city"`
 }
 
+type CreateConnectedDeviceRequest struct {
+	Name       string `json:"name" binding:"required"`
+	Type       uint   `json:"type" binding:"required"`
+	IPAddress  string `json:"ip_address" `
+	MACAddress string `json:"mac_address"`
+}
+
 type UpdateDeviceRequest struct {
 	Name              *string `json:"name,omitempty"`
 	Type              *uint   `json:"type,omitempty"`

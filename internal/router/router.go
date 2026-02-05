@@ -181,14 +181,24 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	}
 	{
 		api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
-		api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
+		api.GET("/devices/:id/connected/:cid/readings", r.readingHandler.GetReadingsOfConnectedDevice)
+		api.POST("/devices/:id/connected", r.deviceHandler.CreateConnectedDevice)
+		api.POST("/devices/:id/connected/new", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDeviceWithDetails)
 
 	}
-	api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
-	api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
-	api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
+	{
+
+		api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
+
+		api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
+
+		api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
+	}
+
 	api.POST("/devices/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
+
 	api.PUT("/devices/:id/full", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_full_update"), r.deviceHandler.FullUpdateDevice)
+
 	api.DELETE("/devices/:id", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.DeleteDevice)
 
 	api.GET(

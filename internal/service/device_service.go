@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/aruncs31s/skvms/internal/database"
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
+	"gorm.io/gorm"
 )
 
 type DeviceService interface {
@@ -35,14 +38,32 @@ type DeviceService interface {
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
 	FullUpdateDevice(ctx context.Context, id uint, req *dto.FullUpdateDeviceRequest, updatedBy uint) error
 	DeleteDevice(ctx context.Context, id uint) error
-	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
+	AddConnectedDevice(
+		ctx context.Context,
+		parentID,
+		childID uint,
+	) error
+	IsParent(
+		ctx context.Context, parentID uint,
+		childID uint,
+	) (bool, error)
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
 	SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error)
 	SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error)
 	SearchSensors(ctx context.Context, query string) ([]dto.GenericDropdown, error)
 	ListAllSensors(ctx context.Context) ([]dto.DeviceView, error)
 	GetSensorDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
-	CreateSensorDevice(ctx context.Context, userID uint, req *dto.CreateDeviceRequest) (dto.DeviceView, error)
+	CreateSensorDevice(
+		ctx context.Context,
+		userID uint,
+		req *dto.CreateDeviceRequest,
+	) (dto.DeviceView, error)
+	CreateMicrocontrollerDevice(
+		ctx context.Context,
+		parentID uint,
+		userID uint,
+		req *dto.CreateConnectedDeviceRequest,
+	) (dto.DeviceView, error)
 }
 
 type deviceService struct {
@@ -50,6 +71,7 @@ type deviceService struct {
 	userRepo         repository.UserRepository
 	auditService     AuditService
 	stateMgmtService DeviceStateService
+	deviceTypeRepo   repository.DeviceTypesRepository
 }
 
 func NewDeviceService(
@@ -57,6 +79,7 @@ func NewDeviceService(
 	userRepo repository.UserRepository,
 	stateMgmtService DeviceStateService,
 	auditService AuditService,
+	deviceTypeRepo repository.DeviceTypesRepository,
 
 ) DeviceService {
 	return &deviceService{
@@ -64,6 +87,7 @@ func NewDeviceService(
 		userRepo:         userRepo,
 		stateMgmtService: stateMgmtService,
 		auditService:     auditService,
+		deviceTypeRepo:   deviceTypeRepo,
 	}
 }
 
@@ -458,4 +482,78 @@ func (s *deviceService) CreateSensorDevice(ctx context.Context, userID uint, req
 	// For now, just create the device, assuming the type is sensor
 	// In future, could validate the device type is sensor
 	return s.CreateDevice(ctx, userID, req)
+}
+
+func (s *deviceService) CreateMicrocontrollerDevice(
+	ctx context.Context,
+	parentID uint,
+	userID uint,
+	req *dto.CreateConnectedDeviceRequest,
+) (dto.DeviceView, error) {
+	var deviceView dto.DeviceView
+	parentDevice, err := s.repo.GetDevice(ctx, parentID)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	if parentDevice == nil {
+		return dto.DeviceView{}, errors.New("parent device not found")
+	}
+
+	deviceType, err := s.deviceTypeRepo.GetDeviceByID(
+		ctx,
+		req.Type,
+	)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	if deviceType == nil {
+		return dto.DeviceView{}, errors.New("device type not found")
+	}
+	if deviceType.HardwareType != model.HardwareTypeMicroController {
+		return dto.DeviceView{}, errors.New("invalid device type for microcontroller")
+	}
+
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		device := &model.Device{
+			Name:         req.Name,
+			DeviceTypeID: req.Type, // This should be the ID for the microcontroller type
+			CurrentState: 1,        // Default to Active
+			CreatedBy:    userID,
+		}
+		deviceDetails := &model.DeviceDetails{
+			IPAddress:  req.IPAddress,
+			MACAddress: req.MACAddress,
+		}
+		device, err := s.repo.CreateDevice(
+			ctx,
+			device,
+			deviceDetails,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := s.repo.AddConnectedDevice(ctx, parentID, device.ID); err != nil {
+			return err
+		}
+
+		deviceView.Address = parentDevice.Address.Address
+		deviceView.City = parentDevice.Address.City
+		deviceView.HardwareType = parentDevice.DeviceType.HardwareType
+		deviceView.Type = parentDevice.DeviceType.Name
+		deviceView.ID = device.ID
+		deviceView.Name = device.Name
+		deviceView.Status = parentDevice.DeviceState.Name
+		deviceView.IPAddress = deviceDetails.IPAddress
+		deviceView.MACAddress = deviceDetails.MACAddress
+		return nil
+	})
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	return deviceView, nil
+}
+func (s *deviceService) IsParent(ctx context.Context, parentID uint, childID uint) (bool, error) {
+	return s.repo.IsParent(ctx, parentID, childID)
 }

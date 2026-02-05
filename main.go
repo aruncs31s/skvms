@@ -63,8 +63,9 @@ func main() {
 		userRepo,
 		deviceStateService,
 		auditService,
+		deviceTypesRepo,
 	)
-	readingService := service.NewReadingService(readingRepo)
+	readingService := service.NewReadingService(readingRepo, deviceService)
 	userService := service.NewUserService(userRepo, deviceService, auditService)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)

@@ -427,3 +427,45 @@ func (h *DeviceHandler) CreateSensorDevice(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, sensor)
 }
+
+func (h *DeviceHandler) CreateConnectedDevice(
+	c *gin.Context,
+) {
+	h.AddConnectedDevice(c)
+}
+func (h *DeviceHandler) CreateConnectedDeviceWithDetails(
+	c *gin.Context,
+) {
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent device id"})
+		return
+	}
+
+	var req dto.CreateConnectedDeviceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	connectedDevice, err := h.deviceService.CreateMicrocontrollerDevice(
+		c.Request.Context(),
+		uint(parentID),
+		userID.(uint),
+		&req,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to create connected device",
+			"details": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"connected_device": connectedDevice})
+}
