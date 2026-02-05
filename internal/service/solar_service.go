@@ -22,6 +22,10 @@ type SolarService interface {
 		req dto.CreateSolarDeviceDTO,
 		createdBy uint,
 	) (dto.DeviceView, error)
+	GetAllMySolarDevices(
+		ctx context.Context,
+		userID uint,
+	) (*[]dto.SolarDeviceView, error)
 }
 type solarService struct {
 	solarRepo       repository.SolarRepository
@@ -51,12 +55,21 @@ func (s *solarService) GetAllSolarDevices(
 ) (*[]dto.SolarDeviceView, error) {
 	return s.solarRepo.GetAllSolarDevices(ctx)
 }
-func (s *solarService) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
+func (s *solarService) mapDeviceToDeviceView(
+	d model.Device,
+	dt *model.DeviceTypes,
+) dto.DeviceView {
+	if dt == nil {
+		dt = &model.DeviceTypes{
+			Name:         "Unknown",
+			HardwareType: model.HardwareTypeUnknown,
+		}
+	}
 	return dto.DeviceView{
 		ID:              d.ID,
 		Name:            d.Name,
-		Type:            d.DeviceType.Name,
-		HardwareType:    d.DeviceType.HardwareType.String(),
+		Type:            dt.Name,
+		HardwareType:    dt.HardwareType,
 		Status:          d.DeviceState.Name,
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
@@ -85,8 +98,10 @@ func (s *solarService) CreateASolarDevice(
 		ctx,
 		req.DeviceTypeID,
 	)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
 	hwType := deviceType.HardwareType
-
 	if model.HardwareType(hwType) != model.HardwareTypeSolar {
 		return dto.DeviceView{}, errors.New("invalid device type for solar device")
 	}
@@ -94,28 +109,48 @@ func (s *solarService) CreateASolarDevice(
 	device := &model.Device{
 		Name:         req.Name,
 		DeviceTypeID: req.DeviceTypeID,
-		// VersionID:    1, // Assuming V1.0.0 is ID 1
-		CreatedBy: createdBy,
+		CreatedBy:    createdBy,
 	}
-	device.Details = model.DeviceDetails{} // Empty details for solar devices
+	details := model.DeviceDetails{} // Empty details for solar devices
 
-	device.Address = model.DeviceAddress{
+	address := model.DeviceAddress{
 		Address: req.Address,
 		City:    req.City,
 	}
 
 	// Get Initial Device State ID
-	initialStateID, err := s.deviceStateRepo.GetInitialDeviceStateID(ctx)
+	initialStateID, err := s.deviceStateRepo.GetInitialDeviceStateID(
+		ctx,
+	)
+
 	if err != nil {
 		logger.GetLogger().Error("Failed to get initial device state", zap.Error(err))
 		return dto.DeviceView{}, err
 	}
+
 	device.CurrentState = initialStateID
 
-	createdDevice, err := s.solarRepo.CreateASolarDevice(ctx, device, req.ConnectedMicroControllerID)
+	createdDevice, err := s.solarRepo.CreateASolarDevice(
+		ctx,
+		device,
+		req.ConnectedMicroControllerID,
+		&details,
+		&address,
+	)
 	if err != nil {
 		return dto.DeviceView{}, err
 	}
 
-	return s.mapDeviceToDeviceView(*createdDevice), nil
+	return s.mapDeviceToDeviceView(
+		*createdDevice,
+		deviceType,
+	), nil
+}
+func (s *solarService) GetAllMySolarDevices(
+	ctx context.Context,
+	userID uint,
+) (*[]dto.SolarDeviceView, error) {
+
+	devices, err := s.solarRepo.GetAllMySolarDevices(ctx, userID)
+	return devices, err
 }

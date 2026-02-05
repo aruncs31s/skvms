@@ -94,13 +94,21 @@ func (r *deviceStateRepository) InsertStateHistory(
 ) error {
 	return tx.WithContext(ctx).Create(history).Error
 }
-func (r *deviceStateRepository) GetInitialDeviceStateID(ctx context.Context) (uint, error) {
+func (r *deviceStateRepository) GetInitialDeviceStateID(
+	ctx context.Context,
+) (uint, error) {
 	var deviceState model.DeviceState
-	err := r.db.WithContext(ctx).
+
+	err := r.
+		db.
+		WithContext(ctx).
 		Where("name = ?", "Initialized").
-		First(&deviceState).Error
+		First(&deviceState).
+		Error
+
 	if err != nil {
 		return 0, err
 	}
+
 	return deviceState.ID, nil
 }

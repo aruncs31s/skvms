@@ -1,17 +1,19 @@
 package dto
 
+import "github.com/aruncs31s/skvms/internal/model"
+
 type DeviceView struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 	// Like For Current Sensor We Have CT and Hall Effect
-	Type            string `json:"type"`
-	HardwareType    string `json:"hardware_type"`
-	Status          string `json:"status"`
-	IPAddress       string `json:"ip_address"`
-	MACAddress      string `json:"mac_address"`
-	FirmwareVersion string `json:"firmware_version"`
-	Address         string `json:"address"`
-	City            string `json:"city"`
+	Type            string             `json:"type"`
+	HardwareType    model.HardwareType `json:"hardware_type"`
+	Status          string             `json:"status"`
+	IPAddress       string             `json:"ip_address"`
+	MACAddress      string             `json:"mac_address"`
+	FirmwareVersion string             `json:"firmware_version"`
+	Address         string             `json:"address"`
+	City            string             `json:"city"`
 }
 
 type CreateDeviceRequest struct {

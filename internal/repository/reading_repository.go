@@ -37,6 +37,10 @@ type ReadingRepository interface {
 	) (map[string]interface{}, error)
 	Count(ctx context.Context) (int64, error)
 	ReadingWriter
+	GetLastReading(
+		ctx context.Context,
+		deviceID uint,
+	) (*model.Reading, error)
 }
 type ReadingWriter interface {
 	Create(
@@ -225,4 +229,15 @@ func (r *readingRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Reading{}).Count(&count).Error
 	return count, err
+}
+func (r *readingRepository) GetLastReading(ctx context.Context, deviceID uint) (*model.Reading, error) {
+	var reading model.Reading
+	err := r.db.WithContext(ctx).
+		Where("device_id = ?", deviceID).
+		Order("created_at DESC").
+		First(&reading).Error
+	if err != nil {
+		return nil, err
+	}
+	return &reading, nil
 }

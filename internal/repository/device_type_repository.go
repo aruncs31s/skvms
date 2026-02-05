@@ -21,6 +21,10 @@ type DeviceTypesRepository interface {
 		ctx context.Context,
 		id uint,
 	) (*model.DeviceTypes, error)
+	GetDeviceTypeByDeviceID(
+		ctx context.Context,
+		deviceID uint,
+	) (map[string]interface{}, error)
 }
 type deviceTypesRepository struct {
 	db *gorm.DB
@@ -60,4 +64,20 @@ func (r *deviceTypesRepository) GetDeviceByID(
 		return nil, err
 	}
 	return &deviceType, nil
+}
+func (r *deviceTypesRepository) GetDeviceTypeByDeviceID(
+	ctx context.Context,
+	deviceID uint,
+) (map[string]interface{}, error) {
+	var result map[string]interface{}
+	err := r.db.WithContext(ctx).
+		Table("device_types").
+		Select(" device_types.name").
+		Joins("join devices on devices.device_type = device_types.id").
+		Where("devices.id = ?", deviceID).
+		Take(&result).Error
+	if err != nil {
+		return nil, nil
+	}
+	return result, nil
 }

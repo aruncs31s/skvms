@@ -54,7 +54,6 @@ func (h *SolarHandler) CreateASolarDevice(
 ) {
 
 	userID := c.MustGet("user_id")
-
 	uidUint, ok := userID.(uint)
 	if !ok {
 		c.JSON(
@@ -78,7 +77,7 @@ func (h *SolarHandler) CreateASolarDevice(
 		return
 	}
 
-	solarDeviceID, err := h.s.CreateASolarDevice(
+	solarDevice, err := h.s.CreateASolarDevice(
 		c.Request.Context(),
 		req,
 		uidUint,
@@ -95,7 +94,53 @@ func (h *SolarHandler) CreateASolarDevice(
 	c.JSON(
 		200,
 		gin.H{
-			"device": solarDeviceID,
+			"device": solarDevice,
+		},
+	)
+}
+func (h *SolarHandler) GetAllMySolarDevices(
+	c *gin.Context,
+) {
+
+	userID := c.MustGet("user_id")
+
+	uidUint, ok := userID.(uint)
+	if !ok {
+		c.JSON(
+			500,
+			gin.H{
+				"error": "invalid user id type",
+			},
+		)
+		return
+	}
+
+	solarDevices, err := h.s.GetAllMySolarDevices(c.Request.Context(), uidUint)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(
+			404,
+			gin.H{
+				"error": "no solar devices found for the user",
+			},
+		)
+		return
+	}
+	if err != nil {
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+	if len(*solarDevices) == 0 {
+		solarDevices = &[]dto.SolarDeviceView{}
+	}
+	c.JSON(
+		200,
+		gin.H{
+			"devices": solarDevices,
 		},
 	)
 }

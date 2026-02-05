@@ -6,14 +6,19 @@ type HardwareType uint8
 
 const (
 	HardwareTypeUnknown HardwareType = iota
+
 	HardwareTypeMicroController
+
 	HardwareTypeSingleBoardComputer
 	HardwareTypeSensor
-	// The Solar type is for the mppt controllers
-	HardwareTypeSolar
+
+	HardwareTypeSolar // The Solar type is for the mppt controllers
+
 	HardwareTypeVoltageMeter
 	HardwareTypeCurrentSensor
+
 	HardwareTypePowerMeter // Both Voltage and Current
+
 	HardwareTypeActuator
 )
 

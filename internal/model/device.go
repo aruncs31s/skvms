@@ -62,7 +62,7 @@ type Device struct {
 	DeviceTypeID uint `gorm:"column:device_type"`
 
 	// FK to Version.ID
-	VersionID *uint `gorm:"column:version_id;index;default:null"`
+	VersionID *uint `gorm:"column:version_id;index;default:1"`
 
 	// 1= Active, 0 = Inactive , 2 = Maintenance, 3 = Decommissioned
 	// Also FK to DeviceState.ID

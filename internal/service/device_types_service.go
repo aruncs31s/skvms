@@ -25,6 +25,10 @@ type DeviceTypesService interface {
 	) error
 	GetAllHardwareTypes(ctx context.Context) ([]dto.GenericDropdown, error)
 	GetAllSensorTypes(ctx context.Context) ([]dto.GenericDropdown, error)
+	GetDeviceTypeByDeviceID(
+		ctx context.Context,
+		deviceID uint,
+	) (map[string]interface{}, error)
 }
 type deviceTypesService struct {
 	deviceTypesRepo repository.DeviceTypesRepository
@@ -119,4 +123,12 @@ func (s *deviceTypesService) GetAllSensorTypes(ctx context.Context) ([]dto.Gener
 		dropdowns = append(dropdowns, dropdown)
 	}
 	return dropdowns, nil
+}
+
+func (s *deviceTypesService) GetDeviceTypeByDeviceID(
+	ctx context.Context,
+	deviceID uint,
+) (map[string]interface{}, error) {
+	return s.deviceTypesRepo.GetDeviceTypeByDeviceID(ctx, deviceID)
+
 }

@@ -107,6 +107,11 @@ type DeviceReader interface {
 		hardwareType model.HardwareType,
 		// Right now only supports connecting one device.
 	) (dto.DeviceView, error)
+	GetDevicesByHardwareTypeAndUserID(
+		ctx context.Context,
+		hardwareType model.HardwareType,
+		userID uint,
+	) (*[]model.DeviceView, error)
 }
 
 type deviceRepository struct {
@@ -126,7 +131,7 @@ func (r *deviceRepository) mapDeviceToDeviceView(d model.Device) dto.DeviceView 
 		ID:              d.ID,
 		Name:            d.Name,
 		Type:            d.DeviceType.Name,
-		HardwareType:    d.DeviceType.HardwareType.String(),
+		HardwareType:    d.DeviceType.HardwareType,
 		Status:          d.DeviceState.Name,
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
@@ -243,6 +248,7 @@ func (r *deviceRepository) CreateDevice(
 		if err := tx.Create(device).Error; err != nil {
 			return err
 		}
+
 		detailsStruct := &model.DeviceDetails{
 			DeviceID:   device.ID,
 			IPAddress:  details.IPAddress,
@@ -264,6 +270,9 @@ func (r *deviceRepository) CreateDevice(
 	if err != nil {
 		return nil, err
 	}
+	device.Details = *details
+	device.Address = *address
+
 	return device, nil
 }
 
@@ -297,7 +306,10 @@ func (r *deviceRepository) DeleteDevice(ctx context.Context, id uint) error {
 	})
 }
 
-func (r *deviceRepository) FindVersionByVersion(ctx context.Context, version string) (*model.Version, error) {
+func (r *deviceRepository) FindVersionByVersion(
+	ctx context.Context,
+	version string,
+) (*model.Version, error) {
 	var v model.Version
 	err := r.db.WithContext(ctx).Where("version = ?", version).First(&v).Error
 	if err != nil {
@@ -352,10 +364,12 @@ func (r *deviceRepository) GetConnectedDevicesByHardwareType(
 	hardwareType model.HardwareType,
 ) (dto.DeviceView, error) {
 	var connected model.ConnectedDevice
-	err := r.db.WithContext(ctx).
+	err := r.
+		db.
+		WithContext(ctx).
 		Joins("JOIN devices d ON connected_devices.child_id = d.id").
 		Joins("JOIN device_types dt ON d.device_type = dt.id").
-		Where("connected_devices.parent_id = ? AND dt.hardware_type = ?", parentID, hardwareType).
+		Where("connected_devices.parent_id = ? AND dt.hardware_type = ?", parentID, int(hardwareType)).
 		First(&connected).Error
 
 	if err != nil {
@@ -525,11 +539,54 @@ func (r *deviceRepository) ListDevicesByHardwareTypes(
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id").
-		Where("dt.hardware_type IN ?", hardwareTypes)
+		Where("dt.hardware_type IN ?",
+			func() []int {
+				var types []int
+				for _, ht := range hardwareTypes {
+					types = append(types, int(ht))
+				}
+				return types
+			}(),
+		)
 
 	err := query.Scan(&devices).Error
 	if err != nil {
 		return nil, err
 	}
 	return devices, nil
+}
+func (r *deviceRepository) GetDevicesByHardwareTypeAndUserID(
+	ctx context.Context,
+	hardwareType model.HardwareType,
+	userID uint,
+) (*[]model.DeviceView, error) {
+	var devices []model.DeviceView
+
+	query := r.db.
+		WithContext(ctx).
+		Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"device_address.address",
+		"device_address.city",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d.version_id").
+		Where("dt.hardware_type = ? AND d.created_by = ?", int(hardwareType), userID)
+
+	err := query.Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return &devices, nil
 }

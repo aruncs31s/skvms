@@ -29,5 +29,6 @@ func (r *Router) setupSolarRoutes(api *gin.RouterGroup) {
 		),
 	)
 	solar.GET("", middleware.JWTAuth(r.jwtSecret), solarHandler.GetAllSolarDevices)
+	solar.GET("/my", middleware.JWTAuth(r.jwtSecret), solarHandler.GetAllMySolarDevices)
 	solar.POST("", middleware.JWTAuth(r.jwtSecret), solarHandler.CreateASolarDevice)
 }
