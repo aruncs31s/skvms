@@ -14,12 +14,17 @@ type DeviceTypesService interface {
 		limit int,
 		offset int,
 	) ([]dto.GenericDropdown, error)
-	GetHardwareTypeByID(
+	// GetHardwareTypeByID(
+	// 	ctx context.Context,
+	// 	id uint,
+	// ) (*dto.GenericDropdownWithFeatures, error)
+	CreateDeviceType(
 		ctx context.Context,
-		id uint,
-	) (*dto.GenericDropdownWithFeatures, error)
+		req dto.CreateDeviceTypeRequest,
+		userID uint,
+	) error
+	GetAllHardwareTypes(ctx context.Context) ([]dto.GenericDropdown, error)
 }
-
 type deviceTypesService struct {
 	deviceTypesRepo repository.DeviceTypesRepository
 }
@@ -73,4 +78,32 @@ func (s *deviceTypesService) GetHardwareTypeByID(
 		Features: m,
 	}
 	return dropdown, nil
+}
+func (s *deviceTypesService) CreateDeviceType(
+	ctx context.Context,
+	req dto.CreateDeviceTypeRequest,
+	userID uint,
+) error {
+
+	if val, ok := model.HardwareTypeMap[model.HardwareType(req.HardwareType)]; !ok || val == "Unknown" {
+		req.HardwareType = uint(model.HardwareTypeUnknown)
+	}
+	deviceType := &model.DeviceTypes{
+		Name:         req.Name,
+		HardwareType: model.HardwareType(req.HardwareType),
+		CreatedBy:    userID,
+		UpdatedBy:    userID,
+	}
+	return s.deviceTypesRepo.CreateDeviceType(ctx, deviceType)
+}
+func (s *deviceTypesService) GetAllHardwareTypes(ctx context.Context) ([]dto.GenericDropdown, error) {
+	var dropdowns []dto.GenericDropdown
+	for key, hwType := range model.HardwareTypeMap {
+		dropdown := dto.GenericDropdown{
+			ID:   uint(key),
+			Name: hwType,
+		}
+		dropdowns = append(dropdowns, dropdown)
+	}
+	return dropdowns, nil
 }

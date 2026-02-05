@@ -37,6 +37,8 @@ type DeviceService interface {
 	DeleteDevice(ctx context.Context, id uint) error
 	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
+	SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error)
 }
 
 type deviceService struct {
@@ -209,10 +211,14 @@ func (s *deviceService) CreateDevice(
 		}
 	}
 
+	if req.FirmwareVersionID == 0 {
+		req.FirmwareVersionID = 1 // Default to V1.0.0 if not provided
+	}
+
 	device := &model.Device{
 		Name:         req.Name,
 		DeviceTypeID: req.Type,
-		VersionID:    req.FirmwareVersionID,
+		VersionID:    &req.FirmwareVersionID,
 		CurrentState: 1, // Default to Active
 		CreatedBy:    userID,
 		UpdatedBy:    userID,
@@ -273,7 +279,7 @@ func (s *deviceService) UpdateDevice(
 
 	// Update firmware version if provided
 	if req.FirmwareVersionID != nil {
-		existing.VersionID = *req.FirmwareVersionID
+		existing.VersionID = req.FirmwareVersionID
 	}
 
 	// Update address fields if provided
@@ -313,7 +319,7 @@ func (s *deviceService) FullUpdateDevice(
 
 	// Update firmware version
 
-	existing.VersionID = req.FirmwareVersionID
+	existing.VersionID = &req.FirmwareVersionID
 
 	// Update address
 	existing.Address.Address = req.Address
@@ -364,4 +370,20 @@ func (s *deviceService) GetConnectedDevices(ctx context.Context, parentID uint) 
 	}
 
 	return s.repo.GetConnectedDevices(ctx, parentID)
+}
+
+func (s *deviceService) SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	return s.repo.SearchDevices(ctx, query)
+}
+
+func (s *deviceService) SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	devices, err := s.repo.SearchDevicesByHardwareType(
+		ctx,
+		query,
+		model.HardwareTypeMicroController,
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.GenericDropdown{}, nil
+	}
+	return devices, nil
 }

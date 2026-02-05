@@ -14,8 +14,8 @@ type SolarRepository interface {
 	CreateASolarDevice(
 		ctx context.Context,
 		device *model.Device,
-		createdBy uint,
-	) (dto.DeviceView, error)
+		connectedID *uint,
+	) (*model.Device, error)
 }
 
 type solarRepository struct {
@@ -169,19 +169,25 @@ func (r *solarRepository) mapToReadingsDTO(
 func (r *solarRepository) CreateASolarDevice(
 	ctx context.Context,
 	device *model.Device,
-	createdBy uint,
-) (dto.DeviceView, error) {
-	r.deviceRepo.CreateDevice(
+	connectedID *uint,
+) (*model.Device, error) {
+	createdDevice, err := r.deviceRepo.CreateDevice(
 		ctx,
 		device,
 		&device.Details,
 		&device.Address,
 	)
+	if err != nil {
+		return nil, err
+	}
 
-	return dto.DeviceView{
-		Name:         device.Name,
-		HardwareType: model.HardwareTypeMap[device.DeviceType.HardwareType],
-		Type:         device.DeviceType.Name,
-		Status:       device.DeviceState.Name,
-	}, nil
+	if connectedID != nil {
+		err = r.deviceRepo.AddConnectedDevice(ctx, createdDevice.ID, *connectedID)
+		if err != nil {
+			logger.GetLogger().Warn("Failed to add connected device", zap.Error(err))
+			// Continue, as device is created
+		}
+	}
+
+	return createdDevice, nil
 }

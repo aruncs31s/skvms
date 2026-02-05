@@ -52,6 +52,7 @@ func (h *SolarHandler) GetAllSolarDevices(
 func (h *SolarHandler) CreateASolarDevice(
 	c *gin.Context,
 ) {
+
 	userID := c.MustGet("user_id")
 
 	uidUint, ok := userID.(uint)
@@ -64,6 +65,7 @@ func (h *SolarHandler) CreateASolarDevice(
 		)
 		return
 	}
+
 	var req dto.CreateSolarDeviceDTO
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -76,7 +78,11 @@ func (h *SolarHandler) CreateASolarDevice(
 		return
 	}
 
-	solarDeviceID, err := h.s.CreateASolarDevice(c.Request.Context(), req, uidUint)
+	solarDeviceID, err := h.s.CreateASolarDevice(
+		c.Request.Context(),
+		req,
+		uidUint,
+	)
 	if err != nil {
 		c.JSON(
 			500,
@@ -89,7 +95,7 @@ func (h *SolarHandler) CreateASolarDevice(
 	c.JSON(
 		200,
 		gin.H{
-			"solar_device_id": solarDeviceID,
+			"device": solarDeviceID,
 		},
 	)
 }

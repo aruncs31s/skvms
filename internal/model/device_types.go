@@ -12,6 +12,9 @@ const (
 	// The Solar type is for the mppt controllers
 	HardwareTypeSolar
 	HardwareTypeVoltageMeter
+	HardwareTypeCurrentSensor
+	HardwareTypePowerMeter // Both Voltage and Current
+	HardwareTypeActuator
 )
 
 var HardwareTypeMap = map[HardwareType]string{
@@ -19,6 +22,11 @@ var HardwareTypeMap = map[HardwareType]string{
 	HardwareTypeMicroController:     "MicroController",
 	HardwareTypeSingleBoardComputer: "SingleBoardComputer",
 	HardwareTypeSensor:              "Sensor",
+	HardwareTypeSolar:               "Solar Charger",
+	HardwareTypeVoltageMeter:        "VoltageMeter",
+	HardwareTypeCurrentSensor:       "CurrentSensor",
+	HardwareTypePowerMeter:          "PowerMeter",
+	HardwareTypeActuator:            "Actuator",
 }
 
 func (h HardwareType) CanControl() bool {

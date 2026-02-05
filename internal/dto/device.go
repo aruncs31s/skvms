@@ -16,8 +16,7 @@ type DeviceView struct {
 
 type CreateDeviceRequest struct {
 	Name              string `json:"name" binding:"required"`
-	UID               string `json:"uid" binding:"required"`
-	Type              uint   `json:"type"`
+	Type              uint   `json:"type" binding:"required"`
 	IPAddress         string `json:"ip_address" `
 	MACAddress        string `json:"mac_address"`
 	FirmwareVersionID uint   `json:"firmware_version_id"`

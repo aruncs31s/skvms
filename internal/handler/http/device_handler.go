@@ -300,3 +300,35 @@ func (h *DeviceHandler) GetConnectedDevices(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"connected_devices": devices})
 }
+
+func (h *DeviceHandler) SearchDevices(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' is required"})
+		return
+	}
+
+	results, err := h.deviceService.SearchDevices(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to search devices"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
+}
+
+func (h *DeviceHandler) SearchMicrocontollerDevices(c *gin.Context) {
+	query := c.Query("q")
+	if query == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter 'q' is required"})
+		return
+	}
+
+	results, err := h.deviceService.SearchMicrocontrollers(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to search devices"})
+		return
+	}
+
+	c.JSON(http.StatusOK, results)
+}

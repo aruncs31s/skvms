@@ -62,7 +62,7 @@ type Device struct {
 	DeviceTypeID uint `gorm:"column:device_type"`
 
 	// FK to Version.ID
-	VersionID uint `gorm:"column:version_id"`
+	VersionID *uint `gorm:"column:version_id;index;default:null"`
 
 	// 1= Active, 0 = Inactive , 2 = Maintenance, 3 = Decommissioned
 	// Also FK to DeviceState.ID
@@ -87,8 +87,13 @@ func (Device) TableName() string {
 	return "devices"
 }
 
-
-
+var DeviceStateMap map[string]uint = map[string]uint{
+	"active":         1,
+	"inactive":       2,
+	"maintenance":    3,
+	"decommissioned": 4,
+	"initialized":    5,
+}
 
 // Possible States for a device
 // Different types of devices can have different states

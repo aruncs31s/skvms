@@ -15,7 +15,10 @@ type DeviceRepository interface {
 		[]model.DeviceView,
 		error,
 	)
-	ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error)
+	ListDevicesByUser(
+		ctx context.Context,
+		userID uint,
+	) ([]dto.DeviceView, error)
 	GetDeviceForUpdate(
 		ctx context.Context,
 		tx *gorm.DB,
@@ -36,8 +39,14 @@ type DeviceRepository interface {
 		details *model.DeviceDetails,
 		address *model.DeviceAddress,
 	) error
-	DeleteDevice(ctx context.Context, id uint) error
-	FindVersionByVersion(ctx context.Context, version string) (*model.Version, error)
+	DeleteDevice(
+		ctx context.Context,
+		id uint,
+	) error
+	FindVersionByVersion(
+		ctx context.Context,
+		version string,
+	) (*model.Version, error)
 	FindVersionByID(
 		ctx context.Context,
 		id uint,
@@ -52,6 +61,15 @@ type DeviceRepository interface {
 	) error
 	Count(ctx context.Context) (int64, error)
 	CountActive(ctx context.Context) (int64, error)
+	SearchDevices(
+		ctx context.Context,
+		query string,
+	) ([]dto.GenericDropdown, error)
+	SearchDevicesByHardwareType(
+		ctx context.Context,
+		query string,
+		hardwareType model.HardwareType,
+	) ([]dto.GenericDropdown, error)
 	DeviceReader
 }
 type SolarReader interface {
@@ -205,18 +223,31 @@ func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Devic
 	return &device, nil
 }
 
-func (r *deviceRepository) CreateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) (*model.Device, error) {
+func (r *deviceRepository) CreateDevice(
+	ctx context.Context,
+	device *model.Device,
+	details *model.DeviceDetails,
+	address *model.DeviceAddress,
+) (*model.Device, error) {
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(device).Error; err != nil {
 			return err
 		}
-		details.DeviceID = device.ID
-		if err := tx.Create(details).Error; err != nil {
+		detailsStruct := &model.DeviceDetails{
+			DeviceID:   device.ID,
+			IPAddress:  details.IPAddress,
+			MACAddress: details.MACAddress,
+		}
+		if err := tx.Create(detailsStruct).Error; err != nil {
 			return err
 		}
-		address.DeviceID = device.ID
-		if err := tx.Create(address).Error; err != nil {
+		addressStruct := &model.DeviceAddress{
+			DeviceID: device.ID,
+			Address:  address.Address,
+			City:     address.City,
+		}
+		if err := tx.Create(addressStruct).Error; err != nil {
 			return err
 		}
 		return nil
@@ -414,4 +445,32 @@ func (r *deviceRepository) GetUsersDevicesByHardwareType(
 		return nil, err
 	}
 	return &devices, nil
+}
+
+func (r *deviceRepository) SearchDevices(
+	ctx context.Context,
+	query string,
+) ([]dto.GenericDropdown, error) {
+	var results []dto.GenericDropdown
+	err := r.db.WithContext(ctx).Model(&model.Device{}).
+		Select("id, name").
+		Where("name LIKE ?", "%"+query+"%").
+		Scan(&results).Error
+	return results, err
+}
+
+func (r *deviceRepository) SearchDevicesByHardwareType(
+	ctx context.Context,
+	query string,
+	hardwareType model.HardwareType,
+) ([]dto.GenericDropdown, error) {
+	var results []dto.GenericDropdown
+	err := r.db.
+		WithContext(ctx).
+		Table(model.Device{}.TableName()+" d").
+		Select("d.id, d.name").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Where("d.name LIKE ? AND dt.hardware_type = ?", "%"+query+"%", hardwareType).
+		Scan(&results).Error
+	return results, err
 }

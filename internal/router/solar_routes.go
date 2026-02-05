@@ -25,6 +25,7 @@ func (r *Router) setupSolarRoutes(api *gin.RouterGroup) {
 			repository.NewUserRepository(database.DB),
 			repository.NewDeviceRepository(database.DB),
 			repository.NewDeviceStateRepository(database.DB),
+			repository.NewDeviceTypesRepository(database.DB),
 		),
 	)
 	solar.GET("", middleware.JWTAuth(r.jwtSecret), solarHandler.GetAllSolarDevices)

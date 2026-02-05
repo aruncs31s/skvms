@@ -1,7 +1,6 @@
 package database
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
@@ -25,15 +24,15 @@ func Seed(db *gorm.DB) error {
 	if err := seedDevices(db); err != nil {
 		return err
 	}
-	if err := seedReadings(db); err != nil {
-		return err
-	}
-	if err := seedDeviceStateHistory(db); err != nil {
-		return err
-	}
-	if err := seedAuditLogs(db); err != nil {
-		return err
-	}
+	// if err := seedReadings(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedDeviceStateHistory(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedAuditLogs(db); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -42,58 +41,58 @@ func Seed(db *gorm.DB) error {
 func seedDeviceTypes(db *gorm.DB) error {
 	devTypes := []model.DeviceTypes{
 		{
-			Name:         "esp8266",
-			HardwareType: 1,
-			CreatedBy:    1,
+			Name:         "ESP8266 (NODEMCU) ",
+			HardwareType: model.HardwareTypeMicroController,
+			CreatedBy:    1, //ADMIN
 		},
 		{
-			Name:         "esp32",
-			HardwareType: 1,
+			Name:         "ESP32",
+			HardwareType: model.HardwareTypeMicroController,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "volt-current-meter",
-			HardwareType: 2,
+			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "smart-switch",
-			HardwareType: 3,
+			HardwareType: model.HardwareTypeActuator,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "sensor-node",
-			HardwareType: 4,
+			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "temperature-sensor",
-			HardwareType: 4,
+			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "humidity-sensor",
-			HardwareType: 4,
+			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "motion-detector",
-			HardwareType: 4,
+			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "relay-module",
-			HardwareType: 3,
+			HardwareType: model.HardwareTypeActuator,
 			CreatedBy:    1,
 		},
 		{
 			Name:         "power-monitor",
-			HardwareType: 2,
+			HardwareType: model.HardwareTypePowerMeter,
 			CreatedBy:    1,
 		},
 		{
-			Name:         "energy-meter",
-			HardwareType: 2,
+			Name:         "Solar Charge Controller",
+			HardwareType: model.HardwareTypeSolar,
 			CreatedBy:    1,
 		},
 	}
@@ -249,37 +248,19 @@ func seedDevices(db *gorm.DB) error {
 		return err
 	}
 
-	// Device data for each type
-	deviceData := map[string]struct {
+	// Device data for test device
+	data := struct {
 		Name string
 		MAC  string
 		IP   string
 	}{
-		"volt-current-meter": {"Main Panel Meter", "AA:BB:CC:DD:EE:FF", "192.168.1.100"},
-		"smart-switch":       {"Living Room Switch", "BB:CC:DD:EE:FF:AA", "192.168.1.101"},
-		"sensor-node":        {"Temperature Sensor", "CC:DD:EE:FF:AA:BB", "192.168.1.102"},
-		"temperature-sensor": {"Office Temp Sensor", "DD:EE:FF:AA:BB:CC", "192.168.1.103"},
-		"humidity-sensor":    {"Warehouse Humidity", "EE:FF:AA:BB:CC:DD", "192.168.1.104"},
-		"motion-detector":    {"Entrance Motion", "FF:AA:BB:CC:DD:EE", "192.168.1.105"},
-		"relay-module":       {"Pump Relay", "AA:BB:CC:DD:EE:11", "192.168.1.106"},
-		"power-monitor":      {"Server Room Monitor", "BB:CC:DD:EE:FF:22", "192.168.1.107"},
-		"energy-meter":       {"Building Meter", "CC:DD:EE:FF:AA:33", "192.168.1.108"},
+		Name: "Test Device",
+		MAC:  "AA:BB:CC:DD:EE:FF",
+		IP:   "192.168.1.100",
 	}
 
-	ipCounter := 100
-	for _, dt := range deviceTypes {
-		data, exists := deviceData[dt.Name]
-		if !exists {
-			data = struct {
-				Name string
-				MAC  string
-				IP   string
-			}{
-				Name: dt.Name + " Device",
-				MAC:  fmt.Sprintf("00:11:22:33:44:%02X", ipCounter),
-				IP:   fmt.Sprintf("192.168.1.%d", ipCounter),
-			}
-		}
+	if len(deviceTypes) > 0 {
+		dt := deviceTypes[0] // Use first device type for test device
 
 		// Assign version based on type
 		versionIndex := (int(dt.ID) - 1) % len(versions)
@@ -289,7 +270,7 @@ func seedDevices(db *gorm.DB) error {
 			device := model.Device{
 				Name:         data.Name,
 				DeviceTypeID: dt.ID,
-				VersionID:    version.ID,
+				VersionID:    &version.ID,
 				CurrentState: 1, // Active
 				CreatedBy:    1,
 				UpdatedBy:    1,
@@ -321,7 +302,6 @@ func seedDevices(db *gorm.DB) error {
 		if err != nil {
 			return err
 		}
-		ipCounter++
 	}
 
 	return nil

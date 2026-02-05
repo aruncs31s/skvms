@@ -164,6 +164,9 @@ func (r *Router) setupAuthRoutes(api *gin.RouterGroup) {
 // setupDeviceRoutes configures device related routes
 func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
 	api.GET("/devices", r.deviceHandler.ListDevices)
+	api.GET("/devices/types", r.deviceTypesHandler.ListDeviceTypes)
+	api.POST("/devices/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
+	api.GET("/devices/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
 	api.GET("/devices/:id", r.deviceHandler.GetDevice)
 	api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
 	api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
@@ -188,6 +191,8 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 		r.versionHandler.CreateNewDeviceVersion,
 	)
 	api.GET("/devices/my", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetMyDevices)
+	api.GET("/devices/search", r.deviceHandler.SearchDevices)
+	api.GET("/devices/search/microcontrollers", r.deviceHandler.SearchMicrocontollerDevices)
 
 }
 

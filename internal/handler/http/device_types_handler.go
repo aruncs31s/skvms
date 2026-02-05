@@ -11,6 +11,7 @@ import (
 type DeviceTypesHandler interface {
 	ListDeviceTypes(c *gin.Context)
 	GetHardwareType(c *gin.Context)
+	CreateDeviceType(c *gin.Context)
 }
 
 type deviceTypesHandler struct {
@@ -44,16 +45,9 @@ func (h *deviceTypesHandler) ListDeviceTypes(c *gin.Context) {
 }
 
 func (h *deviceTypesHandler) GetHardwareType(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid device type id"})
-		return
-	}
 
-	deviceType, err := h.deviceTypesService.GetHardwareTypeByID(
+	deviceType, err := h.deviceTypesService.GetAllHardwareTypes(
 		c.Request.Context(),
-		uint(id),
 	)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "failed to load device type"})
@@ -64,4 +58,27 @@ func (h *deviceTypesHandler) GetHardwareType(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"device_type": deviceType})
+}
+
+func (h *deviceTypesHandler) CreateDeviceType(c *gin.Context) {
+	var req dto.CreateDeviceTypeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request payload"})
+		return
+	}
+
+	userID, _ := c.Get("user_id")
+
+	err := h.deviceTypesService.CreateDeviceType(
+		c.Request.Context(),
+		req,
+		userID.(uint),
+	)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to create device type"})
+		return
+	}
+
+	c.JSON(201, gin.H{"message": "device type created successfully"})
 }
