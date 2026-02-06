@@ -30,12 +30,12 @@ func Seed(db *gorm.DB) error {
 	if err := seedReadings(db); err != nil {
 		return err
 	}
-	// if err := seedDeviceStateHistory(db); err != nil {
-	// 	return err
-	// }
-	// if err := seedAuditLogs(db); err != nil {
-	// 	return err
-	// }
+	if err := seedDeviceStateHistory(db); err != nil {
+		return err
+	}
+	if err := seedAuditLogs(db); err != nil {
+		return err
+	}
 	return nil
 }
 

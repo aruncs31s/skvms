@@ -37,10 +37,11 @@ type CodeGenRequest struct {
 
 // CodeGenResponse is the API response after a successful codegen/build.
 type CodeGenResponse struct {
-	Message    string `json:"message"`
-	BuildTool  string `json:"build_tool"`
-	BinarySize int64  `json:"binary_size_bytes,omitempty"`
-	BuildID    string `json:"build_id"`
+	Message     string `json:"message"`
+	BuildTool   string `json:"build_tool"`
+	BinarySize  int64  `json:"binary_size_bytes,omitempty"`
+	BuildID     string `json:"build_id"`
+	DownloadURL string `json:"download_url,omitempty"`
 }
 
 // UploadRequest holds parameters for OTA firmware upload.

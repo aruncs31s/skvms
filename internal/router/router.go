@@ -170,6 +170,9 @@ func (r *Router) setupCodegenRoutes(api *gin.RouterGroup) {
 		// Generate firmware (returns build ID)
 		cg.POST("/generate", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Generate)
 
+		// Build firmware and return a download URL
+		cg.POST("/build", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Build)
+
 		// Build and download firmware binary in one step
 		cg.POST("/build-and-download", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.GenerateAndDownload)
 
@@ -201,9 +204,11 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
 
 	{
-
+		// Get all types.
 		api.GET("/devices/types", r.deviceTypesHandler.ListDeviceTypes)
+
 		api.POST("/devices/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
+
 		api.GET("/devices/:id/type", r.deviceTypesHandler.GetDeviceTypeByDeviceID)
 
 		api.GET("/devices/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
@@ -257,6 +262,7 @@ func (r *Router) setupDeviceAuthRoutes(api *gin.RouterGroup) {
 		api.GET("/devices/search/sensors", r.deviceHandler.SearchSensorDevices)
 	}
 	api.GET("/devices/microcontrollers", r.deviceHandler.ListMicrocontrollerDevices)
+	api.GET("ba", r.deviceHandler.GetMicrocontrollerStats)
 
 }
 
@@ -272,12 +278,12 @@ func (r *Router) setupDeviceTypesRoutes(api *gin.RouterGroup) {
 
 // setupDeviceStateRoutes configures device state related routes
 func (r *Router) setupDeviceStateRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
-	api.GET("/device-states", r.deviceStateHandler.ListDeviceStates)
-	api.GET("/device-states/:id", r.deviceStateHandler.GetDeviceState)
-	api.POST("/device-states", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.CreateDeviceState)
-	api.PUT("/device-states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.UpdateDeviceState)
-	api.DELETE("/device-states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.DeleteDeviceState)
-	api.GET("/devices/:id/state-history", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.GetDeviceStateHistory)
+	api.GET("/devices/states", r.deviceStateHandler.ListDeviceStates)
+	api.GET("/devices/states/:id", r.deviceStateHandler.GetDeviceState)
+	api.POST("/devices/states", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.CreateDeviceState)
+	api.PUT("/devices/states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.UpdateDeviceState)
+	// api.DELETE("/devices/states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.DeleteDeviceState)
+	api.GET("/devices/:id/states/history", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.GetDeviceStateHistory)
 }
 
 // setupUserRoutes configures user related routes

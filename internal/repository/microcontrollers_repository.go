@@ -13,6 +13,15 @@ type MicrocontrollersRepository interface {
 		limit,
 		offset int,
 	) ([]model.MicrocontrollerDeviceView, error)
+	GetTotalMicrocontrollerCount(
+		ctx context.Context,
+	) (int64, error)
+	GetMicrocontrollerStats(
+		ctx context.Context,
+	) (model.MicrocontrollerStatsView, error)
+	LatestVersion(
+		ctx context.Context,
+	) (string, error)
 }
 type microcontrollersRepository struct {
 	db *gorm.DB
@@ -65,4 +74,57 @@ func (r *microcontrollersRepository) ListMicrocontrollerDevices(
 		return nil, err
 	}
 	return devices, nil
+}
+func (r *microcontrollersRepository) GetTotalMicrocontrollerCount(
+	ctx context.Context,
+) (int64, error) {
+	var count int64
+	sql := `SELECT  
+		COUNT(*) 
+	FROM devices d
+	JOIN device_types dt 
+		ON dt.id = d.device_type
+	WHERE dt.hardware_type = ?`
+	err := r.db.WithContext(ctx).Raw(sql, int(model.HardwareTypeMicroController)).Scan(&count).Error
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+func (r *microcontrollersRepository) GetMicrocontrollerStats(
+	ctx context.Context,
+) (model.MicrocontrollerStatsView, error) {
+
+	var stats model.MicrocontrollerStatsView
+	sql := `SELECT  
+		COUNT(*) AS total_devices,
+		SUM(CASE WHEN ds.name = 'online' THEN 1 ELSE 0 END) AS online_devices,
+		SUM(CASE WHEN ds.name = 'offline' THEN 1 ELSE 0 END) AS offline_devices
+	FROM devices d
+	JOIN device_states ds  ON d.current_state  = ds.id
+	JOIN device_types dt 
+		ON dt.id = d.device_type
+	WHERE dt.hardware_type = ?`
+	err := r.db.WithContext(ctx).Raw(sql, int(model.HardwareTypeMicroController)).Scan(&stats).Error
+	if err != nil {
+		return model.MicrocontrollerStatsView{}, err
+	}
+	return stats, nil
+}
+func (r *microcontrollersRepository) LatestVersion(
+	ctx context.Context,
+) (string, error) {
+	var version string
+	sql := `
+	SELECT  
+	v.name as version_name
+	FROM versions v
+	ORDER BY v.name DESC
+	LIMIT 1
+	`
+	err := r.db.WithContext(ctx).Raw(sql).Scan(&version).Error
+	if err != nil {
+		return "", err
+	}
+	return version, nil
 }

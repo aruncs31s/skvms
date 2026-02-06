@@ -27,6 +27,13 @@ type MicrocontrollerDeviceView struct {
 	ConncetedSensors []SensorDeviceView `json:"connected_sensors"`
 }
 
+type MicrocontrollerStatsView struct {
+	TotalMicrocontrollers   int64  `json:"total_microcontrollers"`
+	OnlineMicrocontrollers  int64  `json:"online_microcontrollers"`
+	OfflineMicrocontrollers int64  `json:"offline_microcontrollers"`
+	LatestVersion           string `json:"latest_version"`
+}
+
 type SensorDeviceView struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`

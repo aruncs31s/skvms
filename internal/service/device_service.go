@@ -85,6 +85,9 @@ type DeviceService interface {
 		limit,
 		offset int,
 	) ([]dto.MicrocontrollerDeviceView, error)
+	GetMicrocontrollerStats(
+		ctx context.Context,
+	) (dto.MicrocontrollerStatsView, error)
 }
 
 type deviceService struct {
@@ -660,4 +663,28 @@ func (s *deviceService) ListMicrocontrollerDevices(
 	// Get Parent Device
 
 	return dtos, nil
+}
+func (s *deviceService) GetMicrocontrollerStats(
+	ctx context.Context,
+) (dto.MicrocontrollerStatsView, error) {
+	total, err := s.microcontrollerRepo.GetTotalMicrocontrollerCount(ctx)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	stats, err := s.microcontrollerRepo.GetMicrocontrollerStats(
+		ctx,
+	)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	version, err := s.microcontrollerRepo.LatestVersion(ctx)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	return dto.MicrocontrollerStatsView{
+		TotalMicrocontrollers:   total,
+		OnlineMicrocontrollers:  stats.OnlineDevices,
+		OfflineMicrocontrollers: stats.OfflineDevices,
+		LatestVersion:           version,
+	}, nil
 }

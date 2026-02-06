@@ -69,6 +69,52 @@ func (h *CodeGenHandler) Generate(c *gin.Context) {
 	})
 }
 
+// Build handles POST /api/codegen/build
+// Builds firmware and returns a download URL for the binary.
+func (h *CodeGenHandler) Build(c *gin.Context) {
+	var req dto.CodeGenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	if req.Port == 0 {
+		req.Port = 8080
+	}
+
+	result, err := h.codegenService.Generate(c.Request.Context(), req)
+	if err != nil {
+		logger.GetLogger().Error("Codegen failed",
+			zap.Error(err),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "firmware generation failed",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	downloadURL := fmt.Sprintf("/api/codegen/download/%s", result.BuildID)
+	if c.Request != nil && c.Request.Host != "" {
+		scheme := "http"
+		if c.Request.TLS != nil {
+			scheme = "https"
+		}
+		downloadURL = fmt.Sprintf("%s://%s%s", scheme, c.Request.Host, downloadURL)
+	}
+
+	c.JSON(http.StatusOK, dto.CodeGenResponse{
+		Message:     "Firmware built successfully",
+		BuildTool:   result.BuildTool,
+		BinarySize:  result.BinarySize,
+		BuildID:     result.BuildID,
+		DownloadURL: downloadURL,
+	})
+}
+
 // Download handles GET /api/codegen/download/:build_id
 // Serves the compiled firmware binary for download.
 func (h *CodeGenHandler) Download(c *gin.Context) {

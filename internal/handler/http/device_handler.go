@@ -606,3 +606,23 @@ func (h *DeviceHandler) ListMicrocontrollerDevices(
 		},
 	)
 }
+func (h *DeviceHandler) GetMicrocontrollerStats(
+	c *gin.Context,
+) {
+	stats, err := h.deviceService.GetMicrocontrollerStats(c.Request.Context())
+	if err != nil {
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+	c.JSON(
+		200,
+		gin.H{
+			"stats": stats,
+		},
+	)
+}

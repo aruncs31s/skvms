@@ -25,7 +25,11 @@ type MicrocontrollerDeviceView struct {
 	DeviceState     string `gorm:"column:current_state"` // Status
 	UsedBy          string `gorm:"column:used_by"`
 }
-
+type MicrocontrollerStatsView struct {
+	TotalDevices   int64 `json:"total_devices"`
+	OnlineDevices  int64 `json:"online_devices"`
+	OfflineDevices int64 `json:"offline_devices"`
+}
 type DeviceDetails struct {
 	ID         uint       `gorm:"column:id;primaryKey;autoIncrement"`
 	DeviceID   uint       `gorm:"column:device_id;index;not null"`
