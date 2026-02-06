@@ -578,3 +578,31 @@ func (h *DeviceHandler) GetOfflineDevices(
 		},
 	)
 }
+func (h *DeviceHandler) ListMicrocontrollerDevices(
+	c *gin.Context,
+) {
+
+	devices, err := h.deviceService.ListMicrocontrollerDevices(
+		c.Request.Context(),
+		1000,
+		0,
+	)
+	if err != nil {
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+	if len(devices) == 0 {
+		devices = []dto.MicrocontrollerDeviceView{}
+	}
+	c.JSON(
+		200,
+		gin.H{
+			"devices": devices,
+		},
+	)
+}

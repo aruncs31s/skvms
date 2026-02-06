@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aruncs31s/skvms/internal/codegen"
 	"github.com/aruncs31s/skvms/internal/config"
 	"github.com/aruncs31s/skvms/internal/database"
 	httpHandler "github.com/aruncs31s/skvms/internal/handler/http"
@@ -64,6 +65,7 @@ func main() {
 		deviceStateService,
 		auditService,
 		deviceTypesRepo,
+		repository.NewMicrocontrollersRepository(db),
 	)
 	readingService := service.NewReadingService(readingRepo, deviceService)
 	userService := service.NewUserService(userRepo, deviceService, auditService)
@@ -84,6 +86,10 @@ func main() {
 		repository.NewDeviceStateHistoryRepository(db),
 	), auditService)
 
+	// Initialize codegen service and handler
+	codegenService := codegen.NewService("")
+	codegenHandler := httpHandler.NewCodeGenHandler(codegenService)
+
 	// Setup router with all routes
 	appRouter := router.NewRouter(
 		authHandler,
@@ -96,6 +102,7 @@ func main() {
 		versionHandler,
 		deviceStateHandler,
 		adminHandler,
+		codegenHandler,
 		auditService,
 		deviceAuthService,
 		cfg.JWTSecret,

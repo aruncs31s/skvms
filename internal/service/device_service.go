@@ -80,14 +80,20 @@ type DeviceService interface {
 	GetOfflineDevices(
 		ctx context.Context,
 	) ([]dto.DeviceView, error)
+	ListMicrocontrollerDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) ([]dto.MicrocontrollerDeviceView, error)
 }
 
 type deviceService struct {
-	repo             repository.DeviceRepository
-	userRepo         repository.UserRepository
-	auditService     AuditService
-	stateMgmtService DeviceStateService
-	deviceTypeRepo   repository.DeviceTypesRepository
+	repo                repository.DeviceRepository
+	userRepo            repository.UserRepository
+	auditService        AuditService
+	stateMgmtService    DeviceStateService
+	deviceTypeRepo      repository.DeviceTypesRepository
+	microcontrollerRepo repository.MicrocontrollersRepository
 }
 
 func NewDeviceService(
@@ -96,14 +102,16 @@ func NewDeviceService(
 	stateMgmtService DeviceStateService,
 	auditService AuditService,
 	deviceTypeRepo repository.DeviceTypesRepository,
+	microcontrollerRepo repository.MicrocontrollersRepository,
 
 ) DeviceService {
 	return &deviceService{
-		repo:             repo,
-		userRepo:         userRepo,
-		stateMgmtService: stateMgmtService,
-		auditService:     auditService,
-		deviceTypeRepo:   deviceTypeRepo,
+		repo:                repo,
+		userRepo:            userRepo,
+		stateMgmtService:    stateMgmtService,
+		auditService:        auditService,
+		deviceTypeRepo:      deviceTypeRepo,
+		microcontrollerRepo: microcontrollerRepo,
 	}
 }
 
@@ -618,5 +626,38 @@ func (s *deviceService) GetOfflineDevices(
 	for _, device := range devices {
 		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
 	}
+	return dtos, nil
+}
+
+func (s *deviceService) ListMicrocontrollerDevices(
+	ctx context.Context,
+	limit,
+	offset int,
+) ([]dto.MicrocontrollerDeviceView, error) {
+	devices, err := s.microcontrollerRepo.ListMicrocontrollerDevices(
+		ctx,
+		limit,
+		offset,
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.MicrocontrollerDeviceView{}, err
+	}
+	var dtos []dto.MicrocontrollerDeviceView
+	for _, device := range devices {
+		dtos = append(dtos, dto.MicrocontrollerDeviceView{
+			ID:               device.ID,
+			ParentID:         &device.ParentID,
+			Name:             device.Name,
+			Status:           device.DeviceState,
+			IP:               device.IPAddress,
+			MAC:              device.MACAddress,
+			FirmwareVersion:  device.FirmwareVersion,
+			UsedBy:           &device.UsedBy,
+			ConncetedSensors: nil,
+		})
+	}
+
+	// Get Parent Device
+
 	return dtos, nil
 }

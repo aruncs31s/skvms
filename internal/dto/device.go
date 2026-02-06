@@ -15,6 +15,23 @@ type DeviceView struct {
 	Address         string             `json:"address"`
 	City            string             `json:"city"`
 }
+type MicrocontrollerDeviceView struct {
+	ID               uint               `json:"id"`
+	ParentID         *uint              `json:"parent_id,omitempty"`
+	Name             string             `json:"name"`
+	IP               string             `json:"ip_address"`
+	MAC              string             `json:"mac_address"`
+	Status           string             `json:"status"`
+	UsedBy           *string            `json:"used_by"` // Or Connected To this perticullar Solar Device
+	FirmwareVersion  string             `json:"firmware_version"`
+	ConncetedSensors []SensorDeviceView `json:"connected_sensors"`
+}
+
+type SensorDeviceView struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
 
 type CreateDeviceRequest struct {
 	Name              string `json:"name" binding:"required"`

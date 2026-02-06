@@ -14,6 +14,17 @@ type DeviceView struct {
 	City            string       `gorm:"column:city"`
 	DeviceState     string       `gorm:"column:current_state"`
 }
+type MicrocontrollerDeviceView struct {
+	ID              uint   `gorm:"column:id"`
+	ParentID        uint   `gorm:"column:parent_id"`
+	Name            string `gorm:"column:name"`
+	Type            string `gorm:"column:type"`
+	IPAddress       string `gorm:"column:ip_address"`
+	MACAddress      string `gorm:"column:mac_address"`
+	FirmwareVersion string `gorm:"column:firmware_version"`
+	DeviceState     string `gorm:"column:current_state"` // Status
+	UsedBy          string `gorm:"column:used_by"`
+}
 
 type DeviceDetails struct {
 	ID         uint       `gorm:"column:id;primaryKey;autoIncrement"`

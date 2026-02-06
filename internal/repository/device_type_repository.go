@@ -72,7 +72,12 @@ func (r *deviceTypesRepository) GetDeviceTypeByDeviceID(
 	var result map[string]interface{}
 	err := r.db.WithContext(ctx).
 		Table("device_types").
-		Select(" device_types.name").
+		Select(
+			[]string{
+				"device_types.name",
+				"device_types.hardware_type",
+			},
+		).
 		Joins("join devices on devices.device_type = device_types.id").
 		Where("devices.id = ?", deviceID).
 		Take(&result).Error
