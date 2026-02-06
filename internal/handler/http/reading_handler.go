@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/service"
 	"github.com/aruncs31s/skvms/utils"
 	"github.com/gin-gonic/gin"
@@ -199,5 +200,28 @@ func (h *ReadingHandler) GetReadingsOfConnectedDevice(
 	c.JSON(http.StatusOK, gin.H{
 		"readings": reading,
 		"latest":   lastReadings,
+	})
+}
+func (h *ReadingHandler) ListByDeviceProgressive(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	readings, err := h.readingService.ListByDeviceProgressive(c.Request.Context(), uint(deviceID))
+	if err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to load readings",
+			"details": err.Error(),
+		})
+		return
+	}
+	if len(readings) == 0 {
+		readings = []model.AvgCurentVoltageReading{}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"readings": readings,
 	})
 }

@@ -101,7 +101,6 @@ func (h *SolarHandler) CreateASolarDevice(
 func (h *SolarHandler) GetAllMySolarDevices(
 	c *gin.Context,
 ) {
-
 	userID := c.MustGet("user_id")
 
 	uidUint, ok := userID.(uint)

@@ -43,6 +43,10 @@ type ReadingService interface {
 		startTime time.Time,
 		endTime time.Time,
 	) ([]model.Reading, model.Reading, error)
+	ListByDeviceProgressive(
+		ctx context.Context,
+		deviceID uint,
+	) ([]model.AvgCurentVoltageReading, error)
 }
 
 type readingService struct {
@@ -148,4 +152,11 @@ func (s *readingService) GetReadingsOfConnectedDevice(
 		return nil, model.Reading{}, err
 	}
 	return readings, latestReading, err
+}
+func (s *readingService) ListByDeviceProgressive(
+	ctx context.Context,
+	device uint,
+) ([]model.AvgCurentVoltageReading, error) {
+	readings, err := s.repo.ListByDeviceProgressive(ctx, device)
+	return readings, err
 }

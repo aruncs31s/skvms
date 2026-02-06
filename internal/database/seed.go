@@ -1,6 +1,9 @@
 package database
 
 import (
+	"fmt"
+	"math"
+	"math/rand"
 	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
@@ -24,9 +27,9 @@ func Seed(db *gorm.DB) error {
 	if err := seedDevices(db); err != nil {
 		return err
 	}
-	// if err := seedReadings(db); err != nil {
-	// 	return err
-	// }
+	if err := seedReadings(db); err != nil {
+		return err
+	}
 	// if err := seedDeviceStateHistory(db); err != nil {
 	// 	return err
 	// }
@@ -46,48 +49,29 @@ func seedDeviceTypes(db *gorm.DB) error {
 			CreatedBy:    1, //ADMIN
 		},
 		{
-			Name:         "ESP32",
+			Name:         "ESP32 (NODEMCU-32)",
 			HardwareType: model.HardwareTypeMicroController,
 			CreatedBy:    1,
 		},
 		{
-			Name:         "volt-current-meter",
+			Name:         "Voltage , Current Sensor",
+			HardwareType: model.HardwareTypeSensor,
+			CreatedBy:    1,
+		},
+
+		{
+			Name:         "Temperature Sensor",
 			HardwareType: model.HardwareTypeSensor,
 			CreatedBy:    1,
 		},
 		{
-			Name:         "smart-switch",
+			Name:         "Humidity Sensor",
+			HardwareType: model.HardwareTypeSensor,
+			CreatedBy:    1,
+		},
+		{
+			Name:         "Relay Module",
 			HardwareType: model.HardwareTypeActuator,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "sensor-node",
-			HardwareType: model.HardwareTypeSensor,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "temperature-sensor",
-			HardwareType: model.HardwareTypeSensor,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "humidity-sensor",
-			HardwareType: model.HardwareTypeSensor,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "motion-detector",
-			HardwareType: model.HardwareTypeSensor,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "relay-module",
-			HardwareType: model.HardwareTypeActuator,
-			CreatedBy:    1,
-		},
-		{
-			Name:         "power-monitor",
-			HardwareType: model.HardwareTypePowerMeter,
 			CreatedBy:    1,
 		},
 		{
@@ -180,7 +164,11 @@ func seedAdminUser(db *gorm.DB) error {
 /* ---------------- Versions + Features ---------------- */
 
 func seedVersions(db *gorm.DB) error {
-	versions := []string{"1.0.0", "1.1.0", "2.0.0"}
+	versions := []string{
+		"1.0.0",
+		"1.0.1",
+		"2.0.0",
+	}
 
 	for _, v := range versions {
 		if err := db.FirstOrCreate(
@@ -248,27 +236,24 @@ func seedDevices(db *gorm.DB) error {
 		return err
 	}
 
-	// Device data for test device
-	data := struct {
-		Name string
-		MAC  string
-		IP   string
-	}{
-		Name: "Test Device",
-		MAC:  "AA:BB:CC:DD:EE:FF",
-		IP:   "192.168.1.100",
-	}
+	// Create 100 test devices
+	for i := 0; i < 100; i++ {
+		// Cycle through device types
+		dtIndex := i % len(deviceTypes)
+		dt := deviceTypes[dtIndex]
 
-	if len(deviceTypes) > 0 {
-		dt := deviceTypes[0] // Use first device type for test device
-
-		// Assign version based on type
-		versionIndex := (int(dt.ID) - 1) % len(versions)
+		// Cycle through versions
+		versionIndex := i % len(versions)
 		version := versions[versionIndex]
+
+		// Generate unique device data
+		deviceName := fmt.Sprintf("Test Device %d", i+1)
+		macAddress := fmt.Sprintf("AA:BB:CC:%02X:%02X:%02X", (i/65536)%256, (i/256)%256, i%256)
+		ipAddress := fmt.Sprintf("192.168.1.%d", 100+i)
 
 		err := db.Transaction(func(tx *gorm.DB) error {
 			device := model.Device{
-				Name:         data.Name,
+				Name:         deviceName,
 				DeviceTypeID: dt.ID,
 				VersionID:    &version.ID,
 				CurrentState: 1, // Active
@@ -282,8 +267,8 @@ func seedDevices(db *gorm.DB) error {
 			now := time.Now()
 			if err := tx.Create(&model.DeviceDetails{
 				DeviceID:   device.ID,
-				IPAddress:  data.IP,
-				MACAddress: data.MAC,
+				IPAddress:  ipAddress,
+				MACAddress: macAddress,
 				LastSeenAt: &now,
 			}).Error; err != nil {
 				return err
@@ -321,9 +306,12 @@ func seedReadings(db *gorm.DB) error {
 		return err
 	}
 
-	now := time.Now()
+	rand.Seed(time.Now().UnixNano())
+
+	startDate := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	daysInYear := 365
-	readingsPerDay := 10
+	readingsPerDay := 100
+	totalReadings := float64(daysInYear * readingsPerDay)
 
 	// Batch insert for better performance
 	batchSize := 500
@@ -332,19 +320,23 @@ func seedReadings(db *gorm.DB) error {
 	for _, deviceID := range deviceIDs {
 		for day := 0; day < daysInYear; day++ {
 			for reading := 0; reading < readingsPerDay; reading++ {
-				// Calculate timestamp: spread 1000 readings evenly across 24 hours
+				readingIndex := day*readingsPerDay + reading
+
+				// Calculate timestamp: spread 10 readings evenly across 24 hours
 				minutesInDay := 24 * 60
 				minuteOffset := (reading * minutesInDay) / readingsPerDay
-				timestamp := now.Add(-time.Duration(daysInYear-day)*24*time.Hour + time.Duration(minuteOffset)*time.Minute)
+				timestamp := startDate.AddDate(0, 0, day).Add(time.Duration(minuteOffset) * time.Minute)
 
-				// Generate realistic voltage and current with some variation
-				voltageBase := 220.0
-				voltageVariation := 5.0 * (float64(reading%100) / 100.0) // 0-5V variation
-				voltage := voltageBase + voltageVariation - 2.5          // ±2.5V around base
+				// Generate voltage: 10.8 to 12.5, increasing then decreasing (sine wave)
+				angle := 2 * math.Pi * float64(readingIndex) / totalReadings
+				voltageBase := 11.65
+				voltageAmplitude := 0.85
+				voltage := voltageBase + voltageAmplitude*math.Sin(angle)
+				// Add small random variation per device (±0.1V)
+				voltage += (rand.Float64() - 0.5) * 2
 
-				currentBase := 2.5
-				currentVariation := 0.5 * (float64(reading%50) / 50.0) // 0-0.5A variation
-				current := currentBase + currentVariation - 0.25       // ±0.25A around base
+				// Generate current: 1 to 5 A
+				current := 1.0 + rand.Float64()*4.0
 
 				readings = append(readings, model.Reading{
 					DeviceID:  deviceID,

@@ -5,10 +5,12 @@ type SolarDeviceView struct {
 	Name              string  `json:"name"`
 	ChargingCurrent   float64 `json:"charging_current"`
 	BatteryVoltage    float64 `json:"battery_voltage"`
+	RemainingTime     float64 `json:"remaining_time"`
 	LedStatus         string  `json:"led_status"`
 	ConnectedDeviceIP string  `json:"connected_device_ip"`
 	Address           string  `json:"address"`
 	City              string  `json:"city"`
+	Status            string  `json:"status"`
 }
 type CreateSolarDeviceDTO struct {
 	Name                       string `json:"name" binding:"required"`

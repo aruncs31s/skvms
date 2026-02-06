@@ -64,6 +64,22 @@ type DeviceService interface {
 		userID uint,
 		req *dto.CreateConnectedDeviceRequest,
 	) (dto.DeviceView, error)
+	RemoveConnectedDevice(
+		ctx context.Context,
+		parentID uint,
+		childID uint,
+	) error
+	GetRecentlyCreatedDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) ([]dto.DeviceView, error)
+	GetTotalDeviceCount(
+		ctx context.Context,
+	) (int64, error)
+	GetOfflineDevices(
+		ctx context.Context,
+	) ([]dto.DeviceView, error)
 }
 
 type deviceService struct {
@@ -556,4 +572,51 @@ func (s *deviceService) CreateMicrocontrollerDevice(
 }
 func (s *deviceService) IsParent(ctx context.Context, parentID uint, childID uint) (bool, error) {
 	return s.repo.IsParent(ctx, parentID, childID)
+}
+func (s *deviceService) RemoveConnectedDevice(
+	ctx context.Context,
+	parentID uint,
+	childID uint,
+) error {
+	return s.repo.RemoveConnectedDevice(ctx, parentID, childID)
+}
+
+func (s *deviceService) GetRecentlyCreatedDevices(
+	ctx context.Context,
+	limit,
+	offset int,
+) ([]dto.DeviceView, error) {
+	devices, err := s.repo.GetRecentlyCreatedDevices(ctx, limit, offset)
+	if err != nil || len(*devices) == 0 {
+		return []dto.DeviceView{}, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range *devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+func (s *deviceService) GetTotalDeviceCount(ctx context.Context) (int64, error) {
+	return s.
+		repo.
+		GetTotalDeviceCountByType(
+			ctx,
+			model.HardwareTypeSolar,
+		)
+}
+func (s *deviceService) GetOfflineDevices(
+	ctx context.Context,
+) ([]dto.DeviceView, error) {
+	devices, err := s.repo.GetDevicesByState(
+		ctx,
+		"Inactive",
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
 }

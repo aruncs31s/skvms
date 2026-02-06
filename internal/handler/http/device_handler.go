@@ -7,6 +7,7 @@ import (
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/service"
+	"github.com/aruncs31s/skvms/utils"
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
@@ -279,8 +280,14 @@ func (h *DeviceHandler) AddConnectedDevice(
 	// Audit log
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "add_connected_device",
-		"Added connected device ID: "+strconv.FormatUint(uint64(req.ChildID), 10)+" to parent ID: "+strconv.FormatUint(parentID, 10), c.ClientIP())
+	_ = h.auditService.Log(
+		c.Request.Context(),
+		userID.(uint),
+		username.(string),
+		"add_connected_device",
+		"Added connected device ID: "+strconv.FormatUint(
+			uint64(req.ChildID),
+			10)+" to parent ID: "+strconv.FormatUint(parentID, 10), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "connected device added successfully"})
 }
@@ -433,6 +440,44 @@ func (h *DeviceHandler) CreateConnectedDevice(
 ) {
 	h.AddConnectedDevice(c)
 }
+
+func (h *DeviceHandler) RemoveConnectedDevice(
+	c *gin.Context,
+) {
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent device id"})
+		return
+	}
+
+	childID, err := strconv.ParseUint(c.Param("cid"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid child device id"})
+		return
+	}
+
+	if err := h.deviceService.RemoveConnectedDevice(c.Request.Context(), uint(parentID), uint(childID)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to remove connected device"})
+		return
+	}
+
+	// Audit log
+	userID, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+	_ = h.auditService.Log(
+		c.Request.Context(),
+		userID.(uint),
+		username.(string),
+		"remove_connected_device",
+		"Removed connected device ID: "+strconv.FormatUint(
+			uint64(childID),
+			10)+" from parent ID: "+strconv.FormatUint(parentID, 10), c.ClientIP())
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "connected device removed successfully",
+	})
+
+}
 func (h *DeviceHandler) CreateConnectedDeviceWithDetails(
 	c *gin.Context,
 ) {
@@ -468,4 +513,68 @@ func (h *DeviceHandler) CreateConnectedDeviceWithDetails(
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"connected_device": connectedDevice})
+}
+func (h *DeviceHandler) GetRecentlyCreatedDevices(
+	c *gin.Context,
+) {
+	limit, offset := utils.GetLimitAndOffset(c)
+
+	devices, _ := h.deviceService.GetRecentlyCreatedDevices(
+		c.Request.Context(),
+		limit,
+		offset,
+	)
+	if len(devices) == 0 {
+		devices = []dto.DeviceView{}
+	}
+
+	c.JSON(
+		http.StatusOK,
+		gin.H{
+			"devices": devices,
+		},
+	)
+}
+func (h *DeviceHandler) GetTotalCount(
+	c *gin.Context,
+) {
+	count, err := h.deviceService.GetTotalDeviceCount(c.Request.Context())
+	if err != nil {
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+	c.JSON(
+		200,
+		gin.H{
+			"total_count": count,
+		},
+	)
+}
+func (h *DeviceHandler) GetOfflineDevices(
+	c *gin.Context,
+) {
+	devices, err := h.deviceService.GetOfflineDevices(c.Request.Context())
+	if err != nil {
+		c.JSON(
+			500,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+	if len(devices) == 0 {
+		devices = []dto.DeviceView{}
+	}
+	c.JSON(
+		200,
+		gin.H{
+			"offline_devices": devices,
+		},
+	)
 }

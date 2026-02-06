@@ -1,7 +1,10 @@
 package model
 
 import (
+	"errors"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -78,13 +81,23 @@ type Device struct {
 	CreatedBy        uint              `gorm:"column:created_by"`
 	UpdatedBy        uint              `gorm:"column:updated_by"`
 
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
-	User      User      `gorm:"foreignKey:CreatedBy;references:ID;constraint:-"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime"`
+	User      User           `gorm:"foreignKey:CreatedBy;references:ID;constraint:-"`
+	Deleted   gorm.DeletedAt `gorm:"column:deleted_at;index;default:null"`
 }
 
 func (Device) TableName() string {
 	return "devices"
+}
+
+func (u *Device) BeforeDelete(tx *gorm.DB) (err error) {
+	if u.CreatedBy == 1 {
+		return errors.New(
+			"admin's devices can not be deleted",
+		)
+	}
+	return
 }
 
 var DeviceStateMap map[string]uint = map[string]uint{
@@ -100,7 +113,7 @@ var DeviceStateMap map[string]uint = map[string]uint{
 // Every state must be a cause of some action and all the actions must be defined in DeviceActionsMap
 type DeviceState struct {
 	ID        uint      `gorm:"column:id;primaryKey"`
-	Name      string    `gorm:"column:name"`
+	Name      string    `gorm:"column:name;unique;index;size:100"`
 	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 

@@ -5,6 +5,7 @@ import (
 
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
+	"github.com/aruncs31s/skvms/utils"
 	"gorm.io/gorm"
 )
 
@@ -81,6 +82,24 @@ type DeviceRepository interface {
 	) ([]model.DeviceView, error)
 	DeviceReader
 	IsParent(ctx context.Context, parentID uint, childID uint) (bool, error)
+	RemoveConnectedDevice(
+		ctx context.Context,
+		parentID uint,
+		childID uint,
+	) error
+	GetRecentlyCreatedDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) (*[]model.DeviceView, error)
+	GetTotalDeviceCountByType(
+		ctx context.Context,
+		deviceType model.HardwareType,
+	) (int64, error)
+	GetDevicesByState(
+		ctx context.Context,
+		state string,
+	) ([]model.DeviceView, error)
 }
 type SolarReader interface {
 	DeviceReader
@@ -99,6 +118,10 @@ type DeviceReader interface {
 		ctx context.Context,
 		parentID uint,
 	) ([]dto.DeviceView, error)
+	GetConnectedDevicesByIDs(
+		ctx context.Context,
+		parents []uint,
+	) (map[uint]model.ConnectedDeviceReadings, error)
 	// I want to get a connected devices by hardware type
 	// Example : i want to get my microcontroller connected to the solar charger
 	GetConnectedDevicesByHardwareType(
@@ -605,4 +628,148 @@ func (r *deviceRepository) IsParent(ctx context.Context, parentID uint, childID 
 		return false, err
 	}
 	return count > 0, nil
+}
+func (r *deviceRepository) RemoveConnectedDevice(
+	ctx context.Context,
+	parentID uint,
+	childID uint,
+) error {
+	err := r.db.WithContext(ctx).
+		Where("parent_id = ? AND child_id = ?", parentID, childID).
+		Delete(&model.ConnectedDevice{}).Error
+	return err
+}
+
+func (r *deviceRepository) GetRecentlyCreatedDevices(
+	ctx context.Context,
+	limit,
+	offset int,
+) (*[]model.DeviceView, error) {
+	var devices []model.DeviceView
+
+	query := r.db.
+		WithContext(ctx).
+		Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"device_address.address",
+		"device_address.city",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d.version_id").
+		Order("d.created_at DESC").
+		Limit(limit).
+		Offset(offset)
+
+	err := query.Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return &devices, nil
+}
+
+func (r *deviceRepository) GetTotalDeviceCountByType(
+	ctx context.Context,
+	hardwareType model.HardwareType,
+) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Table("devices as d").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Where("dt.hardware_type = ?", int(hardwareType)).
+		Count(&count).Error
+	return count, err
+}
+func (r *deviceRepository) GetDevicesByState(
+	ctx context.Context,
+	state string,
+) ([]model.DeviceView, error) {
+
+	var devices []model.DeviceView
+
+	query := r.db.
+		WithContext(ctx).
+		Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"device_address.address",
+		"device_address.city",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d.version_id").
+		Order("d.created_at DESC").
+		Where("ds.name = ?", state)
+
+	err := query.Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return devices, nil
+}
+
+// TODO Optmize, Not using Every Fields.
+func (r *deviceRepository) GetConnectedDevicesByIDs(
+	ctx context.Context,
+	parents []uint,
+	// Key is parent ID
+) (map[uint]model.ConnectedDeviceReadings, error) {
+
+	today := utils.GetBeginningOfDay()
+	night := utils.GetEndOfDay()
+	query := `
+		SELECT
+		cd.parent_id,
+		cd.child_id,
+			r.created_at,
+			r.voltage,
+			r.current,
+			AVG(r.current) OVER (
+				ORDER BY r.created_at
+				ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+			) AS avg_current,
+			AVG(r.voltage) OVER (
+					ORDER BY r.created_at
+					ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+			) AS avg_voltage,
+			80 / AVG(r.current) OVER (
+				ORDER BY r.created_at
+				ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+			) AS estimated_remaining_hours
+		FROM readings r
+		JOIN connected_devices cd ON r.device_id = cd.child_id
+		WHERE r.created_at BETWEEN ? AND ? AND cd.parent_id IN ?
+		ORDER BY r.created_at DESC
+		LIMIT 1000;
+	`
+	var readings []model.ConnectedDeviceReadings
+	err := r.db.WithContext(ctx).Raw(query, today, night, parents).Scan(&readings).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uint]model.ConnectedDeviceReadings)
+	for _, reading := range readings {
+		result[reading.ParentDevice] = reading
+	}
+	return result, nil
 }

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
+	"github.com/aruncs31s/skvms/utils"
 	"gorm.io/gorm"
 )
 
@@ -48,6 +49,7 @@ type ReadingRepository interface {
 		startTime time.Time,
 		endTime time.Time,
 	) ([]model.Reading, model.Reading, error)
+	ListByDeviceProgressive(ctx context.Context, device uint) ([]model.AvgCurentVoltageReading, error)
 }
 type ReadingWriter interface {
 	Create(
@@ -274,4 +276,35 @@ func (r *readingRepository) GetReadingsOfConnectedDevice(
 	}
 
 	return readings, *lastReadings, nil
+}
+func (r *readingRepository) ListByDeviceProgressive(ctx context.Context, device uint) ([]model.AvgCurentVoltageReading, error) {
+
+	var readings []model.AvgCurentVoltageReading
+
+	today := utils.GetBeginningOfDay()
+	night := utils.GetEndOfDay()
+	query := `
+		SELECT
+		d.id,
+		r.created_at,
+		r.voltage,
+		r.current,
+		AVG(r.voltage) OVER (
+			ORDER BY r.created_at
+			ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+		) AS avg_voltage,
+		AVG(r.current) OVER (
+			ORDER BY r.created_at
+			ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+		) AS avg_current
+	FROM readings r
+	JOIN devices d ON r.device_id = d.id
+	WHERE r.created_at >= ? AND r.created_at <= ? AND d.id = ?
+	ORDER BY r.created_at DESC
+	`
+	err := r.db.WithContext(ctx).Raw(query, today, night, device).Scan(&readings).Error
+	if err != nil {
+		return nil, err
+	}
+	return readings, nil
 }

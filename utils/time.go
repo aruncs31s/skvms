@@ -1,6 +1,8 @@
 package utils
 
-import "time"
+import (
+	"time"
+)
 
 // Asia/Kolkata is the timezone for India, which is UTC+5:30
 

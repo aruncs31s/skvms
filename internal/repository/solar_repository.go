@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/logger"
@@ -48,10 +49,18 @@ func (r *solarRepository) GetAllSolarDevices(
 	if err != nil {
 		return nil, err
 	}
+	var parents []uint
+	for _, device := range *devices {
+		parents = append(parents, device.ID)
+	}
+	readingMap, err := r.deviceRepo.GetConnectedDevicesByIDs(
+		ctx,
+		parents,
+	)
 
 	var solarDeviceViews []dto.SolarDeviceView
 	for _, device := range *devices {
-		solarDeviceView, err := r.mapDeviceToSolarDeviceView(ctx, device)
+		solarDeviceView, err := r.mapDeviceToSolarDeviceView(ctx, device, readingMap)
 		if err != nil {
 			return nil, err
 		}
@@ -84,7 +93,7 @@ func (r *solarRepository) getConnectedMCs(
 		logger.GetLogger().Warn(
 			"Failed to get connected microcontrollers by hardware type",
 			zap.String(
-				"solar_id", string(solar),
+				"solar_id", strconv.Itoa(int(solar)),
 			),
 			zap.Error(err),
 			zap.Any(
@@ -183,36 +192,52 @@ func (r *solarRepository) CreateASolarDevice(
 func (r *solarRepository) mapDeviceToSolarDeviceView(
 	ctx context.Context,
 	device model.DeviceView,
+	connectedDeviceReadings map[uint]model.ConnectedDeviceReadings,
 ) (dto.SolarDeviceView, error) {
+	if ctx.Err() != nil {
+		return dto.SolarDeviceView{}, ctx.Err()
+	}
 	solarDeviceView := dto.SolarDeviceView{}
 
 	// Get Devices Address , City , IPAddress
 	solarDeviceView.Address, solarDeviceView.City, solarDeviceView.ConnectedDeviceIP = r.getAddressAndIP(&device)
 
-	// Get Connected Voltage And Current Meter
-	mc, err := r.getConnectedMCs(ctx, device.ID)
-
-	if err == nil && mc != nil {
-		voltageMeter, err := r.getConnectedVoltageMeters(ctx, mc.ID)
-		if err != nil {
-			logger.GetLogger().Warn(
-				"Failed to get connected voltage meter for device",
-				zap.Uint("device_id", device.ID),
-				zap.Error(err),
-			)
-			// Continue, as we can still return the device info without voltage and current readings
-			solarDeviceView.BatteryVoltage = 0
-			solarDeviceView.ChargingCurrent = 0
+	if reading, ok := connectedDeviceReadings[device.ID]; ok {
+		solarDeviceView.BatteryVoltage = reading.Voltage
+		solarDeviceView.ChargingCurrent = reading.ChargingCurrent
+		// Calculate Remaining Time based on current battery voltage and charging current
+		if reading.ChargingCurrent > 0 {
+			// Assuming a simple linear relationship for remaining time estimation
+			solarDeviceView.RemainingTime = (100 - reading.Voltage) / reading.ChargingCurrent * 60 // in minutes
 		} else {
-			// Get Voltage And Current Readings
-			reading, err := r.getVoltageAndCurrent(ctx, voltageMeter.ID)
-			if err != nil {
-				return dto.SolarDeviceView{}, err
-			}
-			solarDeviceView.BatteryVoltage = reading.Voltage
-			solarDeviceView.ChargingCurrent = reading.Current
+			solarDeviceView.RemainingTime = 0 // Not charging
 		}
 	}
+
+	// // Get Connected Voltage And Current Meter
+	// mc, err := r.getConnectedMCs(ctx, device.ID)
+
+	// if err == nil && mc != nil {
+	// 	voltageMeter, err := r.getConnectedVoltageMeters(ctx, mc.ID)
+	// 	if err != nil {
+	// 		logger.GetLogger().Warn(
+	// 			"Failed to get connected voltage meter for device",
+	// 			zap.Uint("device_id", device.ID),
+	// 			zap.Error(err),
+	// 		)
+	// 		// Continue, as we can still return the device info without voltage and current readings
+	// 		solarDeviceView.BatteryVoltage = 0
+	// 		solarDeviceView.ChargingCurrent = 0
+	// 	} else {
+	// 		// Get Voltage And Current Readings
+	// 		reading, err := r.getVoltageAndCurrent(ctx, voltageMeter.ID)
+	// 		if err != nil {
+	// 			return dto.SolarDeviceView{}, err
+	// 		}
+	// 		solarDeviceView.BatteryVoltage = reading.Voltage
+	// 		solarDeviceView.ChargingCurrent = reading.Current
+	// 	}
+	// }
 
 	solarDeviceView.ID = device.ID
 	solarDeviceView.Name = device.Name
@@ -231,12 +256,23 @@ func (r *solarRepository) GetAllMySolarDevices(
 		userID,
 	)
 
+	// Check if it has any connected devices ?
+
+	var parents []uint
+	for _, device := range *devices {
+		parents = append(parents, device.ID)
+	}
+
+	readingMap, err := r.deviceRepo.GetConnectedDevicesByIDs(
+		ctx,
+		parents,
+	)
 	if err != nil {
 		return &[]dto.SolarDeviceView{}, err
 	}
 	var solarDeviceViews []dto.SolarDeviceView
 	for _, device := range *devices {
-		solarDeviceView, err := r.mapDeviceToSolarDeviceView(ctx, device)
+		solarDeviceView, err := r.mapDeviceToSolarDeviceView(ctx, device, readingMap)
 		if err != nil {
 			return &[]dto.SolarDeviceView{}, err
 		}

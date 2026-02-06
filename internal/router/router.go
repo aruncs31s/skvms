@@ -165,10 +165,13 @@ func (r *Router) setupAuthRoutes(api *gin.RouterGroup) {
 
 // setupDeviceRoutes configures device related routes
 func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
-	api.GET("/devices", r.deviceHandler.ListDevices)
-	api.GET("/devices/:id", r.deviceHandler.GetDevice)
-	api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
-	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
+	{
+		api.GET("/devices", r.deviceHandler.ListDevices)
+		api.GET("/devices/:id", r.deviceHandler.GetDevice)
+		api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
+		api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
+		api.GET("/devices/recent", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.GetRecentlyCreatedDevices)
+	}
 
 	{
 
@@ -181,16 +184,20 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 	}
 	{
 		api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
+
 		api.GET("/devices/:id/connected/:cid/readings", r.readingHandler.GetReadingsOfConnectedDevice)
-		api.POST("/devices/:id/connected", r.deviceHandler.CreateConnectedDevice)
+
+		api.POST("/devices/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDevice)
+		api.DELETE("/devices/:id/connected/:cid", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.RemoveConnectedDevice)
+
 		api.POST("/devices/:id/connected/new", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDeviceWithDetails)
 
 	}
 	{
-
 		api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
 
 		api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
+		api.GET("/devices/:id/readings/progressive", r.readingHandler.ListByDeviceProgressive)
 
 		api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
 	}

@@ -17,3 +17,11 @@ type Reading struct {
 func (Reading) TableName() string {
 	return "readings"
 }
+
+type AvgCurentVoltageReading struct {
+	Voltage    float64   `gorm:"column:voltage" json:"voltage"`
+	Current    float64   `gorm:"column:current" json:"current"`
+	AvgVoltage float64   `gorm:"column:avg_voltage" json:"avg_voltage"`
+	AvgCurrent float64   `gorm:"column:avg_current" json:"avg_current"`
+	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
+}
