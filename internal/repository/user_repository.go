@@ -18,6 +18,7 @@ type UserRepository interface {
 }
 type UserReader interface {
 	GetByID(ctx context.Context, id uint) (*model.User, error)
+	CheckIfExistsByUserID(ctx context.Context, id uint) (bool, error)
 }
 type userRepository struct {
 	db *gorm.DB
@@ -72,4 +73,12 @@ func (r *userRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.User{}).Count(&count).Error
 	return count, err
+}
+func (r *userRepository) CheckIfExistsByUserID(ctx context.Context, id uint) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", id).Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }

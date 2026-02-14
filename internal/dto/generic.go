@@ -1,10 +1,17 @@
 package dto
 
+import "time"
+
 type GenericDropdown struct {
 	ID   uint   `json:"id"`
 	Name string `json:"name"`
 }
-
+type AdvancedGenericDropdown struct {
+	ID         uint      `json:"id"`
+	Name       string    `json:"name"`
+	CreatedAt  time.Time `json:"created_at"`
+	DeviceType string    `json:"device_type"`
+}
 type GenericDropdownWithFeatures struct {
 	ID       uint            `json:"id"`
 	Name     string          `json:"name"`

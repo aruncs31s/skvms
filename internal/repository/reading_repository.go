@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aruncs31s/skvms/internal/model"
+	"github.com/aruncs31s/skvms/utils"
 	"gorm.io/gorm"
 )
 
@@ -37,6 +38,18 @@ type ReadingRepository interface {
 	) (map[string]interface{}, error)
 	Count(ctx context.Context) (int64, error)
 	ReadingWriter
+	GetLastReading(
+		ctx context.Context,
+		deviceID uint,
+	) (*model.Reading, error)
+
+	GetReadingsOfConnectedDevice(
+		ctx context.Context,
+		childDeviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+	) ([]model.Reading, model.Reading, error)
+	ListByDeviceProgressive(ctx context.Context, device uint) ([]model.AvgCurentVoltageReading, error)
 }
 type ReadingWriter interface {
 	Create(
@@ -65,7 +78,7 @@ func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, lim
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ?", deviceID).
-		Order("created_at ASC").
+		Order("created_at DESC").
 		Limit(limit).
 		Find(&readings).Error
 	if err != nil {
@@ -111,7 +124,7 @@ func (r *readingRepository) ListByDeviceWithInterval(ctx context.Context, device
 
 		query = query.Where(strings.Join(conditions, " OR "), args...)
 
-		err := query.Order("created_at ASC").Find(&readings).Error
+		err := query.Order("created_at DESC").Find(&readings).Error
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +161,7 @@ func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, device
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).
-		Order("created_at ASC").
+		Order("created_at DESC").
 		Find(&readings).Error
 	if err != nil {
 		return nil, err
@@ -225,4 +238,73 @@ func (r *readingRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Reading{}).Count(&count).Error
 	return count, err
+}
+func (r *readingRepository) GetLastReading(ctx context.Context, deviceID uint) (*model.Reading, error) {
+	var reading model.Reading
+	err := r.db.WithContext(ctx).
+		Where("device_id = ?", deviceID).
+		Order("created_at DESC").
+		First(&reading).Error
+	if err != nil {
+		return nil, err
+	}
+	return &reading, nil
+}
+
+func (r *readingRepository) GetReadingsOfConnectedDevice(
+	ctx context.Context,
+	childDeviceID uint,
+	startTime time.Time,
+	endTime time.Time,
+) ([]model.Reading, model.Reading, error) {
+
+	lastReadings, err := r.GetLastReading(
+		ctx,
+		childDeviceID,
+	)
+	if err != nil {
+		return nil, model.Reading{}, err
+	}
+	readings, err := r.ListByDeviceAndDateRange(
+		ctx,
+		childDeviceID,
+		startTime,
+		endTime,
+	)
+	if err != nil {
+		return nil, model.Reading{}, err
+	}
+
+	return readings, *lastReadings, nil
+}
+func (r *readingRepository) ListByDeviceProgressive(ctx context.Context, device uint) ([]model.AvgCurentVoltageReading, error) {
+
+	var readings []model.AvgCurentVoltageReading
+
+	today := utils.GetBeginningOfDay()
+	night := utils.GetEndOfDay()
+	query := `
+		SELECT
+		d.id,
+		r.created_at,
+		r.voltage,
+		r.current,
+		AVG(r.voltage) OVER (
+			ORDER BY r.created_at
+			ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+		) AS avg_voltage,
+		AVG(r.current) OVER (
+			ORDER BY r.created_at
+			ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+		) AS avg_current
+	FROM readings r
+	JOIN devices d ON r.device_id = d.id
+	WHERE r.created_at >= ? AND r.created_at <= ? AND d.id = ?
+	ORDER BY r.created_at DESC
+	`
+	err := r.db.WithContext(ctx).Raw(query, today, night, device).Scan(&readings).Error
+	if err != nil {
+		return nil, err
+	}
+	return readings, nil
 }

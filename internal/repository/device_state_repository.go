@@ -9,11 +9,13 @@ import (
 
 type DeviceStateRepository interface {
 	BeginTx() *gorm.DB
-	ListDeviceStates(ctx context.Context) ([]model.DeviceState, error)
-	GetStatesByType(
+	ListDeviceStates(
 		ctx context.Context,
-		deviceType int,
-	) (*[]model.DeviceState, error)
+	) (
+		[]model.DeviceState,
+		error,
+	)
+
 	GetByID(ctx context.Context, id uint) (*model.DeviceState, error)
 	Create(ctx context.Context, deviceState *model.DeviceState) error
 	Update(ctx context.Context, deviceState *model.DeviceState) error
@@ -29,6 +31,7 @@ type DeviceStateRepository interface {
 		tx *gorm.DB,
 		history *model.DeviceStateHistory,
 	) error
+	GetInitialDeviceStateID(ctx context.Context) (uint, error)
 }
 
 type deviceStateRepository struct {
@@ -48,19 +51,7 @@ func (r *deviceStateRepository) ListDeviceStates(ctx context.Context) ([]model.D
 	err := r.db.WithContext(ctx).Find(&deviceStates).Error
 	return deviceStates, err
 }
-func (r *deviceStateRepository) GetStatesByType(
-	ctx context.Context,
-	deviceType int,
-) (*[]model.DeviceState, error) {
-	var deviceStates []model.DeviceState
-	err := r.db.WithContext(ctx).
-		Where("device_type_id = ?", deviceType).
-		Find(&deviceStates).Error
-	if err != nil {
-		return nil, err
-	}
-	return &deviceStates, nil
-}
+
 func (r *deviceStateRepository) GetByID(ctx context.Context, id uint) (*model.DeviceState, error) {
 	var deviceState model.DeviceState
 	err := r.db.WithContext(ctx).First(&deviceState, id).Error
@@ -102,4 +93,22 @@ func (r *deviceStateRepository) InsertStateHistory(
 	history *model.DeviceStateHistory,
 ) error {
 	return tx.WithContext(ctx).Create(history).Error
+}
+func (r *deviceStateRepository) GetInitialDeviceStateID(
+	ctx context.Context,
+) (uint, error) {
+	var deviceState model.DeviceState
+
+	err := r.
+		db.
+		WithContext(ctx).
+		Where("name = ?", "Initialized").
+		First(&deviceState).
+		Error
+
+	if err != nil {
+		return 0, err
+	}
+
+	return deviceState.ID, nil
 }

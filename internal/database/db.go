@@ -9,6 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var DB *gorm.DB
+
 func New(cfg config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&loc=Local", cfg.DBUser, cfg.DBPassword, cfg.DBHost, cfg.DBPort, cfg.DBName)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
@@ -20,7 +22,7 @@ func New(cfg config.Config) (*gorm.DB, error) {
 		&model.User{},
 		&model.Device{},
 		&model.DeviceDetails{},
-		&model.DeviceAddress{},
+		&model.DeviceAssignment{},
 		&model.Reading{},
 		&model.AuditLog{},
 		&model.DeviceTypes{},
@@ -30,6 +32,7 @@ func New(cfg config.Config) (*gorm.DB, error) {
 		&model.ConnectedDevice{},
 		&model.DeviceState{},
 		&model.DeviceStateHistory{},
+		&model.Location{},
 	); err != nil {
 		return nil, err
 	}
@@ -38,6 +41,6 @@ func New(cfg config.Config) (*gorm.DB, error) {
 	if err := db.Exec("UPDATE devices SET current_state = 1 WHERE current_state = 0").Error; err != nil {
 		return nil, fmt.Errorf("failed to update device states: %w", err)
 	}
-
+	DB = db
 	return db, nil
 }

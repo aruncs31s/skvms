@@ -114,7 +114,11 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	// Audit log
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "user_delete",
+	_ = h.auditService.Log(
+		c.Request.Context(),
+		userID.(uint),
+		username.(string),
+		"user_delete",
 		"Deleted user ID: "+strconv.FormatUint(id, 10), c.ClientIP())
 
 	c.JSON(http.StatusOK, gin.H{"message": "user deleted successfully"})

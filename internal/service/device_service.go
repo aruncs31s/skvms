@@ -2,11 +2,14 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/aruncs31s/skvms/internal/database"
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
+	"gorm.io/gorm"
 )
 
 type DeviceService interface {
@@ -35,15 +38,65 @@ type DeviceService interface {
 	UpdateDevice(ctx context.Context, id uint, req *dto.UpdateDeviceRequest) error
 	FullUpdateDevice(ctx context.Context, id uint, req *dto.FullUpdateDeviceRequest, updatedBy uint) error
 	DeleteDevice(ctx context.Context, id uint) error
-	AddConnectedDevice(ctx context.Context, parentID, childID uint) error
+	AddConnectedDevice(
+		ctx context.Context,
+		parentID,
+		childID uint,
+	) error
+	IsParent(
+		ctx context.Context, parentID uint,
+		childID uint,
+	) (bool, error)
 	GetConnectedDevices(ctx context.Context, parentID uint) ([]dto.DeviceView, error)
+	SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	SearchSensors(ctx context.Context, query string) ([]dto.GenericDropdown, error)
+	ListAllSensors(ctx context.Context) ([]dto.DeviceView, error)
+	GetSensorDevice(ctx context.Context, id uint) (*dto.DeviceView, error)
+	CreateSensorDevice(
+		ctx context.Context,
+		userID uint,
+		req *dto.CreateDeviceRequest,
+	) (dto.DeviceView, error)
+	CreateMicrocontrollerDevice(
+		ctx context.Context,
+		parentID uint,
+		userID uint,
+		req *dto.CreateConnectedDeviceRequest,
+	) (dto.DeviceView, error)
+	RemoveConnectedDevice(
+		ctx context.Context,
+		parentID uint,
+		childID uint,
+	) error
+	GetRecentlyCreatedDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) ([]dto.DeviceView, error)
+	GetTotalDeviceCount(
+		ctx context.Context,
+	) (int64, error)
+	GetOfflineDevices(
+		ctx context.Context,
+	) ([]dto.DeviceView, error)
+	ListMicrocontrollerDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) ([]dto.MicrocontrollerDeviceView, error)
+	GetMicrocontrollerStats(
+		ctx context.Context,
+	) (dto.MicrocontrollerStatsView, error)
 }
 
 type deviceService struct {
-	repo             repository.DeviceRepository
-	userRepo         repository.UserRepository
-	auditService     AuditService
-	stateMgmtService DeviceStateService
+	repo                repository.DeviceRepository
+	userRepo            repository.UserRepository
+	auditService        AuditService
+	stateMgmtService    DeviceStateService
+	deviceTypeRepo      repository.DeviceTypesRepository
+	microcontrollerRepo repository.MicrocontrollersRepository
 }
 
 func NewDeviceService(
@@ -51,13 +104,17 @@ func NewDeviceService(
 	userRepo repository.UserRepository,
 	stateMgmtService DeviceStateService,
 	auditService AuditService,
+	deviceTypeRepo repository.DeviceTypesRepository,
+	microcontrollerRepo repository.MicrocontrollersRepository,
 
 ) DeviceService {
 	return &deviceService{
-		repo:             repo,
-		userRepo:         userRepo,
-		stateMgmtService: stateMgmtService,
-		auditService:     auditService,
+		repo:                repo,
+		userRepo:            userRepo,
+		stateMgmtService:    stateMgmtService,
+		auditService:        auditService,
+		deviceTypeRepo:      deviceTypeRepo,
+		microcontrollerRepo: microcontrollerRepo,
 	}
 }
 
@@ -66,13 +123,11 @@ func (s *deviceService) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
 		ID:              d.ID,
 		Name:            d.Name,
 		Type:            d.DeviceType.Name,
-		HardwareType:    d.DeviceType.HardwareType.String(),
+		HardwareType:    d.DeviceType.HardwareType,
 		Status:          d.DeviceState.Name,
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
 		FirmwareVersion: d.Version.Name,
-		Address:         d.Address.Address,
-		City:            d.Address.City,
 	}
 }
 
@@ -92,12 +147,10 @@ func (s *deviceService) mapToDeviceModelViewToView(d model.DeviceView) dto.Devic
 		ID:              d.ID,
 		Name:            d.Name,
 		Type:            d.Type,
-		HardwareType:    d.HardwareType.String(),
+		HardwareType:    d.HardwareType,
 		IPAddress:       d.IPAddress,
 		MACAddress:      d.MACAddress,
 		FirmwareVersion: d.FirmwareVersion,
-		Address:         d.Address,
-		City:            d.City,
 		// Their State is the status
 		Status: d.DeviceState,
 	}
@@ -209,10 +262,14 @@ func (s *deviceService) CreateDevice(
 		}
 	}
 
+	if req.FirmwareVersionID == 0 {
+		req.FirmwareVersionID = 1 // Default to V1.0.0 if not provided
+	}
+
 	device := &model.Device{
 		Name:         req.Name,
 		DeviceTypeID: req.Type,
-		VersionID:    req.FirmwareVersionID,
+		VersionID:    &req.FirmwareVersionID,
 		CurrentState: 1, // Default to Active
 		CreatedBy:    userID,
 		UpdatedBy:    userID,
@@ -222,11 +279,11 @@ func (s *deviceService) CreateDevice(
 		MACAddress: req.MACAddress,
 	}
 
-	address := &model.DeviceAddress{
-		Address: req.Address,
-		City:    req.City,
-	}
-	newDevice, err := s.repo.CreateDevice(ctx, device, details, address)
+	// DeviceAssignment is now just LocationID and DeviceID
+	// We don't have Address and City anymore - those are in Location
+	var assignment *model.DeviceAssignment = nil
+
+	newDevice, err := s.repo.CreateDevice(ctx, device, details, assignment)
 	if err != nil {
 		return dto.DeviceView{}, err
 	}
@@ -273,18 +330,10 @@ func (s *deviceService) UpdateDevice(
 
 	// Update firmware version if provided
 	if req.FirmwareVersionID != nil {
-		existing.VersionID = *req.FirmwareVersionID
+		existing.VersionID = req.FirmwareVersionID
 	}
 
-	// Update address fields if provided
-	if req.Address != nil {
-		existing.Address.Address = *req.Address
-	}
-	if req.City != nil {
-		existing.Address.City = *req.City
-	}
-
-	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
+	return s.repo.UpdateDevice(ctx, existing, &existing.Details, nil)
 }
 
 func (s *deviceService) FullUpdateDevice(
@@ -313,13 +362,9 @@ func (s *deviceService) FullUpdateDevice(
 
 	// Update firmware version
 
-	existing.VersionID = req.FirmwareVersionID
+	existing.VersionID = &req.FirmwareVersionID
 
-	// Update address
-	existing.Address.Address = req.Address
-	existing.Address.City = req.City
-
-	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
+	return s.repo.UpdateDevice(ctx, existing, &existing.Details, nil)
 }
 
 func (s *deviceService) DeleteDevice(ctx context.Context, id uint) error {
@@ -364,4 +409,264 @@ func (s *deviceService) GetConnectedDevices(ctx context.Context, parentID uint) 
 	}
 
 	return s.repo.GetConnectedDevices(ctx, parentID)
+}
+
+func (s *deviceService) SearchDevices(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	return s.repo.SearchDevices(ctx, query)
+}
+
+func (s *deviceService) SearchMicrocontrollers(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	devices, err := s.repo.SearchDevicesByHardwareType(
+		ctx,
+		query,
+		model.HardwareTypeMicroController,
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.GenericDropdown{}, nil
+	}
+	return devices, nil
+}
+func (s *deviceService) SearchSensors(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
+	devices, err := s.repo.SearchDevicesByHardwareTypes(
+		ctx,
+		query,
+		[]model.HardwareType{
+			model.HardwareTypeSensor,
+			model.HardwareTypeCurrentSensor,
+			model.HardwareTypePowerMeter,
+			model.HardwareTypeVoltageMeter,
+		},
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.GenericDropdown{}, nil
+	}
+	return devices, nil
+}
+
+func (s *deviceService) ListAllSensors(ctx context.Context) ([]dto.DeviceView, error) {
+	devices, err := s.repo.ListDevicesByHardwareTypes(
+		ctx,
+		[]model.HardwareType{
+			model.HardwareTypeSensor,
+			model.HardwareTypeCurrentSensor,
+			model.HardwareTypePowerMeter,
+			model.HardwareTypeVoltageMeter,
+		},
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, nil
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+
+func (s *deviceService) GetSensorDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {
+	device, err := s.repo.GetDevice(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// Check if it's a sensor type
+	sensorTypes := []model.HardwareType{
+		model.HardwareTypeSensor,
+		model.HardwareTypeCurrentSensor,
+		model.HardwareTypePowerMeter,
+		model.HardwareTypeVoltageMeter,
+	}
+	isSensor := false
+	for _, t := range sensorTypes {
+		if device.DeviceType.HardwareType == t {
+			isSensor = true
+			break
+		}
+	}
+	if !isSensor {
+		return nil, fmt.Errorf("device is not a sensor")
+	}
+	dto := s.mapDeviceToDeviceView(*device)
+	return &dto, nil
+}
+
+func (s *deviceService) CreateSensorDevice(ctx context.Context, userID uint, req *dto.CreateDeviceRequest) (dto.DeviceView, error) {
+	// For now, just create the device, assuming the type is sensor
+	// In future, could validate the device type is sensor
+	return s.CreateDevice(ctx, userID, req)
+}
+
+func (s *deviceService) CreateMicrocontrollerDevice(
+	ctx context.Context,
+	parentID uint,
+	userID uint,
+	req *dto.CreateConnectedDeviceRequest,
+) (dto.DeviceView, error) {
+	var deviceView dto.DeviceView
+	parentDevice, err := s.repo.GetDevice(ctx, parentID)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	if parentDevice == nil {
+		return dto.DeviceView{}, errors.New("parent device not found")
+	}
+
+	deviceType, err := s.deviceTypeRepo.GetDeviceByID(
+		ctx,
+		req.Type,
+	)
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	if deviceType == nil {
+		return dto.DeviceView{}, errors.New("device type not found")
+	}
+	if deviceType.HardwareType != model.HardwareTypeMicroController {
+		return dto.DeviceView{}, errors.New("invalid device type for microcontroller")
+	}
+
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		device := &model.Device{
+			Name:         req.Name,
+			DeviceTypeID: req.Type, // This should be the ID for the microcontroller type
+			CurrentState: 1,        // Default to Active
+			CreatedBy:    userID,
+		}
+		deviceDetails := &model.DeviceDetails{
+			IPAddress:  req.IPAddress,
+			MACAddress: req.MACAddress,
+		}
+		device, err := s.repo.CreateDevice(
+			ctx,
+			device,
+			deviceDetails,
+			nil,
+		)
+		if err != nil {
+			return err
+		}
+
+		if err := s.repo.AddConnectedDevice(ctx, parentID, device.ID); err != nil {
+			return err
+		}
+
+		deviceView.HardwareType = parentDevice.DeviceType.HardwareType
+		deviceView.Type = parentDevice.DeviceType.Name
+		deviceView.ID = device.ID
+		deviceView.Name = device.Name
+		deviceView.Status = parentDevice.DeviceState.Name
+		deviceView.IPAddress = deviceDetails.IPAddress
+		deviceView.MACAddress = deviceDetails.MACAddress
+		return nil
+	})
+	if err != nil {
+		return dto.DeviceView{}, err
+	}
+	return deviceView, nil
+}
+func (s *deviceService) IsParent(ctx context.Context, parentID uint, childID uint) (bool, error) {
+	return s.repo.IsParent(ctx, parentID, childID)
+}
+func (s *deviceService) RemoveConnectedDevice(
+	ctx context.Context,
+	parentID uint,
+	childID uint,
+) error {
+	return s.repo.RemoveConnectedDevice(ctx, parentID, childID)
+}
+
+func (s *deviceService) GetRecentlyCreatedDevices(
+	ctx context.Context,
+	limit,
+	offset int,
+) ([]dto.DeviceView, error) {
+	devices, err := s.repo.GetRecentlyCreatedDevices(ctx, limit, offset)
+	if err != nil || len(*devices) == 0 {
+		return []dto.DeviceView{}, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range *devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+func (s *deviceService) GetTotalDeviceCount(ctx context.Context) (int64, error) {
+	return s.
+		repo.
+		GetTotalDeviceCountByType(
+			ctx,
+			model.HardwareTypeSolar,
+		)
+}
+func (s *deviceService) GetOfflineDevices(
+	ctx context.Context,
+) ([]dto.DeviceView, error) {
+	devices, err := s.repo.GetDevicesByState(
+		ctx,
+		"Inactive",
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, nil
+}
+
+func (s *deviceService) ListMicrocontrollerDevices(
+	ctx context.Context,
+	limit,
+	offset int,
+) ([]dto.MicrocontrollerDeviceView, error) {
+	devices, err := s.microcontrollerRepo.ListMicrocontrollerDevices(
+		ctx,
+		limit,
+		offset,
+	)
+	if err != nil || len(devices) == 0 {
+		return []dto.MicrocontrollerDeviceView{}, err
+	}
+	var dtos []dto.MicrocontrollerDeviceView
+	for _, device := range devices {
+		dtos = append(dtos, dto.MicrocontrollerDeviceView{
+			ID:               device.ID,
+			ParentID:         &device.ParentID,
+			Name:             device.Name,
+			Status:           device.DeviceState,
+			IP:               device.IPAddress,
+			MAC:              device.MACAddress,
+			FirmwareVersion:  device.FirmwareVersion,
+			UsedBy:           &device.UsedBy,
+			ConncetedSensors: nil,
+		})
+	}
+
+	// Get Parent Device
+
+	return dtos, nil
+}
+func (s *deviceService) GetMicrocontrollerStats(
+	ctx context.Context,
+) (dto.MicrocontrollerStatsView, error) {
+	total, err := s.microcontrollerRepo.GetTotalMicrocontrollerCount(ctx)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	stats, err := s.microcontrollerRepo.GetMicrocontrollerStats(
+		ctx,
+	)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	version, err := s.microcontrollerRepo.LatestVersion(ctx)
+	if err != nil {
+		return dto.MicrocontrollerStatsView{}, err
+	}
+	return dto.MicrocontrollerStatsView{
+		TotalMicrocontrollers:   total,
+		OnlineMicrocontrollers:  stats.OnlineDevices,
+		OfflineMicrocontrollers: stats.OfflineDevices,
+		LatestVersion:           version,
+	}, nil
 }

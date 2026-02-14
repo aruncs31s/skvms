@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/aruncs31s/skvms/internal/codegen"
 	"github.com/aruncs31s/skvms/internal/config"
 	"github.com/aruncs31s/skvms/internal/database"
 	httpHandler "github.com/aruncs31s/skvms/internal/handler/http"
@@ -45,6 +46,7 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
 	versionRepo := repository.NewVersionRepository(db)
+	locationRepo := repository.NewLocationRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	deviceAuthService := service.NewDeviceAuthService(deviceRepo, userRepo, cfg.JWTSecret)
@@ -63,12 +65,15 @@ func main() {
 		userRepo,
 		deviceStateService,
 		auditService,
+		deviceTypesRepo,
+		repository.NewMicrocontrollersRepository(db),
 	)
-	readingService := service.NewReadingService(readingRepo)
+	readingService := service.NewReadingService(readingRepo, deviceService)
 	userService := service.NewUserService(userRepo, deviceService, auditService)
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
 	adminService := service.NewAdminService(userRepo, deviceRepo, readingRepo, auditRepo)
+	locationService := service.NewLocationService(locationRepo, deviceRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceAuthHandler := httpHandler.NewDeviceAuthHandler(deviceAuthService, auditService)
@@ -82,6 +87,11 @@ func main() {
 	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, service.NewDeviceStateHistoryService(
 		repository.NewDeviceStateHistoryRepository(db),
 	), auditService)
+	locationHandler := httpHandler.NewLocationHandler(locationService, auditService)
+
+	// Initialize codegen service and handler
+	codegenService := codegen.NewService("")
+	codegenHandler := httpHandler.NewCodeGenHandler(codegenService)
 
 	// Setup router with all routes
 	appRouter := router.NewRouter(
@@ -95,6 +105,8 @@ func main() {
 		versionHandler,
 		deviceStateHandler,
 		adminHandler,
+		codegenHandler,
+		locationHandler,
 		auditService,
 		deviceAuthService,
 		cfg.JWTSecret,

@@ -20,6 +20,8 @@ type Router struct {
 	versionHandler     *httpHandler.VersionHandler
 	deviceStateHandler *httpHandler.DeviceStateHandler
 	adminHandler       *httpHandler.AdminHandler
+	codegenHandler     *httpHandler.CodeGenHandler
+	locationHandler    *httpHandler.LocationHandler
 	auditService       service.AuditService
 	deviceAuthService  service.DeviceAuthService
 	jwtSecret          string
@@ -37,6 +39,8 @@ func NewRouter(
 	versionHandler *httpHandler.VersionHandler,
 	deviceStateHandler *httpHandler.DeviceStateHandler,
 	adminHandler *httpHandler.AdminHandler,
+	codegenHandler *httpHandler.CodeGenHandler,
+	locationHandler *httpHandler.LocationHandler,
 	auditService service.AuditService,
 	deviceAuthService service.DeviceAuthService,
 	jwtSecret string,
@@ -52,6 +56,8 @@ func NewRouter(
 		versionHandler:     versionHandler,
 		deviceStateHandler: deviceStateHandler,
 		adminHandler:       adminHandler,
+		codegenHandler:     codegenHandler,
+		locationHandler:    locationHandler,
 		auditService:       auditService,
 		deviceAuthService:  deviceAuthService,
 		jwtSecret:          jwtSecret,
@@ -147,6 +153,43 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 
 		// Reading routes (device authenticated)
 		r.setupReadingRoutes(api, deviceAuthMiddleware)
+		// Solar device routes
+		r.setupSolarRoutes(api)
+		// Sensor routes
+		r.setupSensorRoutes(api)
+
+		// Codegen routes (ESP32 firmware generation)
+		r.setupCodegenRoutes(api)
+
+		// Location routes
+		r.setupLocationRoutes(api, auditMiddleware)
+	}
+}
+
+// setupCodegenRoutes configures ESP32 firmware code generation routes
+func (r *Router) setupCodegenRoutes(api *gin.RouterGroup) {
+	cg := api.Group("/codegen")
+	{
+		// List available build tools
+		cg.GET("/tools", r.codegenHandler.ListTools)
+
+		// Generate firmware (returns build ID)
+		cg.POST("/generate", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Generate)
+
+		// Build firmware and return a download URL
+		cg.POST("/build", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Build)
+
+		// Build and download firmware binary in one step
+		cg.POST("/build-and-download", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.GenerateAndDownload)
+
+		// Download a previously built firmware
+		cg.GET("/download/:build_id", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Download)
+
+		// Build and upload firmware to ESP32 via OTA
+		cg.POST("/upload", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Upload)
+
+		// Cleanup a build's artifacts
+		cg.DELETE("/builds/:build_id", middleware.JWTAuth(r.jwtSecret), r.codegenHandler.Cleanup)
 	}
 }
 
@@ -163,13 +206,40 @@ func (r *Router) setupAuthRoutes(api *gin.RouterGroup) {
 func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
 	api.GET("/devices", r.deviceHandler.ListDevices)
 	api.GET("/devices/:id", r.deviceHandler.GetDevice)
-	api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
-	api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
-	api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
-	api.POST("/devices/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
 	api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
 	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
+
+	{
+		// Get all types.
+		api.GET("/devices/types", r.deviceTypesHandler.ListDeviceTypes)
+
+		api.POST("/devices/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
+
+		api.GET("/devices/:id/type", r.deviceTypesHandler.GetDeviceTypeByDeviceID)
+
+		api.GET("/devices/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
+		api.GET("/devices/types/sensors", r.deviceTypesHandler.GetSensorType)
+	}
+	{
+		api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
+		api.GET("/devices/:id/connected/:cid/readings", r.readingHandler.GetReadingsOfConnectedDevice)
+
+		api.POST("/devices/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDevice)
+		api.DELETE("/devices/:id/connected/:cid", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.RemoveConnectedDevice)
+
+		api.POST("/devices/:id/connected/new", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDeviceWithDetails)
+	}
+	{
+		api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
+		api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
+		api.GET("/devices/:id/readings/progressive", r.readingHandler.ListByDeviceProgressive)
+		api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
+	}
+
+	api.POST("/devices/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
+
 	api.PUT("/devices/:id/full", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_full_update"), r.deviceHandler.FullUpdateDevice)
+
 	api.DELETE("/devices/:id", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.DeleteDevice)
 
 	api.GET(
@@ -192,7 +262,14 @@ func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middle
 // setupDeviceAuthRoutes configures device authentication related routes
 func (r *Router) setupDeviceAuthRoutes(api *gin.RouterGroup) {
 	api.POST("/device-auth/token", middleware.JWTAuth(r.jwtSecret), r.deviceAuthHandler.GenerateDeviceToken)
-	api.POST("/device-auth/:device_id/token", middleware.JWTAuth(r.jwtSecret), r.deviceAuthHandler.GenerateDeviceTokenByParam)
+	{
+		api.GET("/devices/search", r.deviceHandler.SearchDevices)
+		api.GET("/devices/search/microcontrollers", r.deviceHandler.SearchMicrocontollerDevices)
+		api.GET("/devices/search/sensors", r.deviceHandler.SearchSensorDevices)
+	}
+	api.GET("/devices/microcontrollers", r.deviceHandler.ListMicrocontrollerDevices)
+	api.GET("ba", r.deviceHandler.GetMicrocontrollerStats)
+
 }
 
 // setupReadingRoutes configures reading related routes (device authenticated)
@@ -207,12 +284,12 @@ func (r *Router) setupDeviceTypesRoutes(api *gin.RouterGroup) {
 
 // setupDeviceStateRoutes configures device state related routes
 func (r *Router) setupDeviceStateRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
-	api.GET("/device-states", r.deviceStateHandler.ListDeviceStates)
-	api.GET("/device-states/:id", r.deviceStateHandler.GetDeviceState)
-	api.POST("/device-states", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.CreateDeviceState)
-	api.PUT("/device-states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.UpdateDeviceState)
-	api.DELETE("/device-states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.DeleteDeviceState)
-	api.GET("/devices/:id/state-history", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.GetDeviceStateHistory)
+	api.GET("/devices/states", r.deviceStateHandler.ListDeviceStates)
+	api.GET("/devices/states/:id", r.deviceStateHandler.GetDeviceState)
+	api.POST("/devices/states", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.CreateDeviceState)
+	api.PUT("/devices/states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.UpdateDeviceState)
+	// api.DELETE("/devices/states/:id", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.DeleteDeviceState)
+	api.GET("/devices/:id/states/history", middleware.JWTAuth(r.jwtSecret), r.deviceStateHandler.GetDeviceStateHistory)
 }
 
 // setupUserRoutes configures user related routes
@@ -247,4 +324,29 @@ func (r *Router) setupVersionRoutes(api *gin.RouterGroup) {
 // setupAdminRoutes configures admin related routes
 func (r *Router) setupAdminRoutes(api *gin.RouterGroup) {
 	api.GET("/admin/stats", middleware.JWTAuth(r.jwtSecret), r.adminHandler.GetStats)
+}
+func (r *Router) setupSensorRoutes(api *gin.RouterGroup) {
+	sensorAPI := api.Group("devices/sensors")
+	{
+		sensorAPI.GET("", r.deviceHandler.ListAllSensors)
+		sensorAPI.POST("", r.deviceHandler.CreateSensorDevice)
+		sensorAPI.GET("/:id", r.deviceHandler.GetSensorDevice)
+		sensorAPI.GET("/:id/connected", r.deviceHandler.GetConnectedDevices)
+		sensorAPI.GET("/search", r.deviceHandler.SearchSensorDevices)
+	}
+}
+
+// setupLocationRoutes configures location related routes
+func (r *Router) setupLocationRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
+	locationAPI := api.Group("/locations")
+	{
+		locationAPI.GET("", r.locationHandler.ListLocations)
+		locationAPI.GET("/:id", r.locationHandler.GetLocation)
+		locationAPI.GET("/search", r.locationHandler.SearchLocations)
+		locationAPI.POST("", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_create"), r.locationHandler.CreateLocation)
+		locationAPI.PUT("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_update"), r.locationHandler.UpdateLocation)
+		locationAPI.DELETE("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_delete"), r.locationHandler.DeleteLocation)
+		locationAPI.GET("/:id/devices", r.locationHandler.ListDevicesInLocation)
+
+	}
 }

@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type User struct {
 	ID   uint   `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -31,9 +36,20 @@ type UserDetail struct {
 	UserID uint   `gorm:"column:user_id;not null;unique"`
 	Phone  string `gorm:"column:phone"`
 
+	Deleted gorm.DeletedAt `gorm:"column:deleted_at;index;default:null"`
+
 	User User `gorm:"foreignKey:UserID;references:ID"`
 }
 
 func (UserDetail) TableName() string {
 	return "user_details"
+}
+
+func (u *User) BeforeDelete(tx *gorm.DB) (err error) {
+	if u.Role == "admin" {
+		return errors.New(
+			"admin user not allowed to delete",
+		)
+	}
+	return
 }

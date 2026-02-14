@@ -5,7 +5,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/service"
+	"github.com/aruncs31s/skvms/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -142,6 +144,83 @@ func (h *ReadingHandler) ListByDeviceWithInterval(c *gin.Context) {
 		return
 	}
 
+	c.JSON(http.StatusOK, gin.H{
+		"readings": readings,
+	})
+}
+func (h *ReadingHandler) GetReadingsOfConnectedDevice(
+	c *gin.Context,
+) {
+	parentID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid parent device id"})
+		return
+	}
+	cid, err := strconv.ParseUint(c.Param("cid"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid connected device id"})
+		return
+	}
+
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+
+	var st, et time.Time
+	if startDate != "" {
+		st, err = time.Parse("2006-01-02", startDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid start date"})
+			return
+		}
+	} else {
+		st = utils.GetBeginningOfDay()
+	}
+
+	if endDate != "" {
+		et, err = time.Parse("2006-01-02", endDate)
+		if err != nil {
+			et = utils.GetEndOfDay()
+		}
+	}
+
+	reading, lastReadings, err := h.readingService.GetReadingsOfConnectedDevice(
+		c.Request.Context(),
+		uint(parentID),
+		uint(cid),
+		st, et,
+	)
+	if err != nil && reading == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"readings": []string{},
+			"latest":   []string{},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"readings": reading,
+		"latest":   lastReadings,
+	})
+}
+func (h *ReadingHandler) ListByDeviceProgressive(c *gin.Context) {
+	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid device id"})
+		return
+	}
+
+	readings, err := h.readingService.ListByDeviceProgressive(c.Request.Context(), uint(deviceID))
+	if err != nil {
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "failed to load readings",
+			"details": err.Error(),
+		})
+		return
+	}
+	if len(readings) == 0 {
+		readings = []model.AvgCurentVoltageReading{}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"readings": readings,
 	})

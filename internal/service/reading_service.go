@@ -36,14 +36,32 @@ type ReadingService interface {
 	// 	deviceID uint,
 	// 	req *dto.ReadingRequest,
 	// ) (*model.Reading, error)
+	GetReadingsOfConnectedDevice(
+		ctx context.Context,
+		parentDeviceID uint,
+		childDeviceID uint,
+		startTime time.Time,
+		endTime time.Time,
+	) ([]model.Reading, model.Reading, error)
+	ListByDeviceProgressive(
+		ctx context.Context,
+		deviceID uint,
+	) ([]model.AvgCurentVoltageReading, error)
 }
 
 type readingService struct {
-	repo repository.ReadingRepository
+	repo   repository.ReadingRepository
+	device DeviceService
 }
 
-func NewReadingService(repo repository.ReadingRepository) ReadingService {
-	return &readingService{repo: repo}
+func NewReadingService(
+	repo repository.ReadingRepository,
+	device DeviceService,
+) ReadingService {
+	return &readingService{
+		repo:   repo,
+		device: device,
+	}
 }
 
 func (s *readingService) ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, *model.Reading, error) {
@@ -107,4 +125,38 @@ func (s *readingService) RecordEssentialReadings(
 		ctx,
 		reading,
 	)
+}
+func (s *readingService) GetReadingsOfConnectedDevice(
+	ctx context.Context,
+	parentDeviceID uint,
+	childDeviceID uint,
+	startTime time.Time,
+	endTime time.Time,
+) ([]model.Reading, model.Reading, error) {
+
+	if isRelated, err := s.device.IsParent(
+		ctx,
+		parentDeviceID,
+		childDeviceID,
+	); err != nil || !isRelated {
+		return nil, model.Reading{}, err
+	}
+
+	readings, latestReading, err := s.repo.GetReadingsOfConnectedDevice(
+		ctx,
+		childDeviceID,
+		startTime,
+		endTime,
+	)
+	if err != nil {
+		return nil, model.Reading{}, err
+	}
+	return readings, latestReading, err
+}
+func (s *readingService) ListByDeviceProgressive(
+	ctx context.Context,
+	device uint,
+) ([]model.AvgCurentVoltageReading, error) {
+	readings, err := s.repo.ListByDeviceProgressive(ctx, device)
+	return readings, err
 }

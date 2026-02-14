@@ -18,7 +18,11 @@ type AuditService interface {
 		ipAddress string,
 		deviceID uint,
 	) error
-	List(ctx context.Context, action string, limit int) ([]model.AuditLog, error)
+	List(
+		ctx context.Context,
+		action string,
+		limit int,
+	) ([]model.AuditLog, error)
 	ListByUser(ctx context.Context, userID uint, limit int) ([]model.AuditLog, error)
 }
 

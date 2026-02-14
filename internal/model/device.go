@@ -1,7 +1,10 @@
 package model
 
 import (
+	"errors"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 const (
@@ -56,18 +59,20 @@ var DeviceStateActionResult = map[uint]map[DeviceAction]uint{
 type Device struct {
 	ID   uint   `gorm:"column:id;primaryKey;autoIncrement"`
 	Name string `gorm:"column:name"`
+
 	// 1 -  , 2 - Sensor
 	// FK to DeviceTypes.ID
 	DeviceTypeID uint `gorm:"column:device_type"`
+
 	// FK to Version.ID
-	VersionID uint `gorm:"column:version_id"`
+	VersionID *uint `gorm:"column:version_id;index;default:1"`
 
 	// 1= Active, 0 = Inactive , 2 = Maintenance, 3 = Decommissioned
 	// Also FK to DeviceState.ID
 	CurrentState uint `gorm:"column:current_state;index"`
 
 	Details          DeviceDetails     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Address          DeviceAddress     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Assignment       DeviceAssignment  `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	DeviceType       DeviceTypes       `gorm:"foreignKey:DeviceTypeID;references:ID"`
 	Version          Version           `gorm:"foreignKey:VersionID;references:ID"`
 	Readings         []Reading         `gorm:"foreignKey:DeviceID;references:ID"`
@@ -76,22 +81,40 @@ type Device struct {
 	CreatedBy        uint              `gorm:"column:created_by"`
 	UpdatedBy        uint              `gorm:"column:updated_by"`
 
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
-	UpdatedAt time.Time `gorm:"column:updated_at;autoUpdateTime"`
+	CreatedAt time.Time      `gorm:"column:created_at;autoCreateTime"`
+	UpdatedAt time.Time      `gorm:"column:updated_at;autoUpdateTime"`
+	User      User           `gorm:"foreignKey:CreatedBy;references:ID;constraint:-"`
+	Deleted   gorm.DeletedAt `gorm:"column:deleted_at;index;default:null"`
 }
 
 func (Device) TableName() string {
 	return "devices"
 }
 
+func (u *Device) BeforeDelete(tx *gorm.DB) (err error) {
+	if u.CreatedBy == 1 {
+		return errors.New(
+			"admin's devices can not be deleted",
+		)
+	}
+	return
+}
+
+var DeviceStateMap map[string]uint = map[string]uint{
+	"active":         1,
+	"inactive":       2,
+	"maintenance":    3,
+	"decommissioned": 4,
+	"initialized":    5,
+}
+
 // Possible States for a device
 // Different types of devices can have different states
 // Every state must be a cause of some action and all the actions must be defined in DeviceActionsMap
 type DeviceState struct {
-	ID           uint      `gorm:"column:id;primaryKey"`
-	Name         string    `gorm:"column:name"`
-	DeviceTypeID uint      `gorm:"column:device_type_id"`
-	CreatedAt    time.Time `gorm:"column:created_at;autoCreateTime"`
+	ID        uint      `gorm:"column:id;primaryKey"`
+	Name      string    `gorm:"column:name;unique;index;size:100"`
+	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime"`
 }
 
 func (DeviceState) TableName() string {
