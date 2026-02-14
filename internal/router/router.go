@@ -77,42 +77,10 @@ func (r *Router) SetupRouter() *gin.Engine {
 		AllowCredentials: true,
 	}))
 
-	// Static file routes for serving HTML pages
-	r.setupStaticRoutes(router)
-
 	// API routes
 	r.setupAPIRoutes(router)
 
 	return router
-}
-
-// setupStaticRoutes configures routes for serving static HTML files
-func (r *Router) setupStaticRoutes(router *gin.Engine) {
-	router.Static("/static", "./static")
-	router.GET("/", func(c *gin.Context) {
-		c.File("./static/index.html")
-	})
-	router.GET("/login", func(c *gin.Context) {
-		c.File("./static/login.html")
-	})
-	router.GET("/devices/:id", func(c *gin.Context) {
-		c.File("./static/device-dashboard.html")
-	})
-	router.GET("/devices/:id/readings", func(c *gin.Context) {
-		c.File("./static/device.html")
-	})
-	router.GET("/all-readings", func(c *gin.Context) {
-		c.File("./static/all-readings.html")
-	})
-	router.GET("/manage-devices", func(c *gin.Context) {
-		c.File("./static/manage-devices.html")
-	})
-	router.GET("/manage-users", func(c *gin.Context) {
-		c.File("./static/manage-users.html")
-	})
-	router.GET("/audit", func(c *gin.Context) {
-		c.File("./static/audit.html")
-	})
 }
 
 // setupAPIRoutes configures all API routes
