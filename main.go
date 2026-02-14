@@ -73,7 +73,7 @@ func main() {
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
 	adminService := service.NewAdminService(userRepo, deviceRepo, readingRepo, auditRepo)
-	locationService := service.NewLocationService(locationRepo, deviceRepo)
+	locationService := service.NewLocationService(locationRepo, deviceRepo, readingRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceAuthHandler := httpHandler.NewDeviceAuthHandler(deviceAuthService, auditService)

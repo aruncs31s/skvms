@@ -778,7 +778,10 @@ func (r *deviceRepository) GetConnectedDevicesByIDs(
 	}
 	return result, nil
 }
-func (r *deviceRepository) GetDevicesByLocationID(ctx context.Context, locationID uint) ([]model.DeviceView, error) {
+func (r *deviceRepository) GetDevicesByLocationID(
+	ctx context.Context,
+	locationID uint,
+) ([]model.DeviceView, error) {
 	var devices []model.DeviceView
 
 	query := r.db.

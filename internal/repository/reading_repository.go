@@ -14,11 +14,6 @@ import (
 )
 
 type ReadingRepository interface {
-	// ListByDevice(
-	// 	ctx context.Context,
-	// 	deviceID uint,
-	// 	limit int,
-	// ) ([]model.Reading, error)
 	ListByDeviceAndDateRange(
 		ctx context.Context,
 		deviceID uint,
@@ -52,7 +47,15 @@ type ReadingRepository interface {
 		startTime time.Time,
 		endTime time.Time,
 	) ([]model.Reading, model.Reading, error)
-	ListByDeviceProgressive(ctx context.Context, device uint) ([]model.AvgCurentVoltageReading, error)
+	ListByDeviceProgressive(
+		ctx context.Context,
+		device uint,
+	) ([]model.AvgCurentVoltageReading, error)
+	SevenDaysReadingsByLocation(
+		ctx context.Context,
+		locationID uint,
+		deviceID uint,
+	) ([]model.SevenDaysReadings, error)
 }
 type ReadingWriter interface {
 	Create(
@@ -69,26 +72,6 @@ type readingRepository struct {
 func NewReadingRepository(db *gorm.DB) ReadingRepository {
 	return &readingRepository{db: db}
 }
-
-// func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, error) {
-// 	if limit <= 0 {
-// 		limit = 50
-// 	}
-// 	if limit > 500 {
-// 		limit = 500
-// 	}
-
-// 	var readings []model.Reading
-// 	err := r.db.WithContext(ctx).
-// 		Where("device_id = ?", deviceID).
-// 		Order("created_at DESC").
-// 		Limit(limit).
-// 		Find(&readings).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return readings, nil
-// }
 
 func (r *readingRepository) ListByDeviceWithInterval(
 	ctx context.Context,
@@ -329,5 +312,37 @@ func (r *readingRepository) ListByDeviceProgressive(ctx context.Context, device 
 	if err != nil {
 		return nil, err
 	}
+	return readings, nil
+}
+
+func (r *readingRepository) SevenDaysReadingsByLocation(
+	ctx context.Context,
+	locationID uint,
+	deviceID uint,
+) ([]model.SevenDaysReadings, error) {
+	var readings []model.SevenDaysReadings
+	q := r.db.WithContext(ctx)
+	query := `
+		SELECT
+			FROM_UNIXTIME(
+				FLOOR(UNIX_TIMESTAMP(r.created_at)/3600) * 3600
+			) AS bucket,
+			AVG(r.voltage) as voltage,
+			AVG(r.current) as current
+		FROM readings r
+		JOIN device_assignment da 
+		ON da.device_id = r.device_id
+		AND da.location_id = ?
+		AND r.created_at BETWEEN da.assigned_at
+			AND COALESCE(da.unassigned_at, NOW())
+		WHERE r.created_at >= NOW() - INTERVAL 7 DAY AND da.device_id = ?
+		GROUP BY r.device_id, bucket
+		ORDER BY bucket DESC
+	`
+	err := q.Raw(query, locationID, deviceID).Scan(&readings).Error
+	if err != nil {
+		return []model.SevenDaysReadings{}, err
+	}
+
 	return readings, nil
 }

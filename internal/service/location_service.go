@@ -2,10 +2,12 @@ package service
 
 import (
 	"context"
+	"sync"
 
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
+	"golang.org/x/sync/errgroup"
 )
 
 type LocationService interface {
@@ -48,19 +50,26 @@ type LocationReader interface {
 		ctx context.Context,
 		locationID uint,
 	) ([]dto.DeviceView, error)
+	SevenDaysReadings(
+		ctx context.Context,
+		locationID uint,
+	) ([]dto.ReadingsResponse, error)
 }
 type locationService struct {
 	repo repository.LocationRepository
 	dr   repository.DeviceRepository
+	rr   repository.ReadingRepository
 }
 
 func NewLocationService(
 	repo repository.LocationRepository,
 	deviceRepo repository.DeviceRepository,
+	readingRepo repository.ReadingRepository,
 ) LocationService {
 	return &locationService{
 		repo: repo,
 		dr:   deviceRepo,
+		rr:   readingRepo,
 	}
 }
 
@@ -109,7 +118,10 @@ func (s *locationService) List(ctx context.Context) ([]dto.LocationResponse, err
 	return responses, nil
 }
 
-func (s *locationService) GetByID(ctx context.Context, id uint) (*dto.LocationResponse, error) {
+func (s *locationService) GetByID(
+	ctx context.Context,
+	id uint,
+) (*dto.LocationResponse, error) {
 	location, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -152,14 +164,21 @@ func (s *locationService) GetByCode(ctx context.Context, code string) (*dto.Loca
 	}, nil
 }
 
-func (s *locationService) Create(ctx context.Context, location dto.CreateLocationRequest) error {
+func (s *locationService) Create(
+	ctx context.Context,
+	location dto.CreateLocationRequest,
+) error {
 	return s.repo.Create(ctx, &model.Location{
 		Code: location.Code,
 		Name: location.Name,
 	})
 }
 
-func (s *locationService) Update(ctx context.Context, locationID uint, location dto.UpdateLocationRequest) error {
+func (s *locationService) Update(
+	ctx context.Context,
+	locationID uint,
+	location dto.UpdateLocationRequest,
+) error {
 	existing, err := s.repo.GetByID(ctx, locationID)
 	if err != nil {
 		return err
@@ -172,10 +191,16 @@ func (s *locationService) Update(ctx context.Context, locationID uint, location 
 	return s.repo.Update(ctx, existing)
 }
 
-func (s *locationService) Delete(ctx context.Context, id uint) error {
+func (s *locationService) Delete(
+	ctx context.Context,
+	id uint,
+) error {
 	return s.repo.Delete(ctx, id)
 }
-func (s *locationService) ListDevicesInLocation(ctx context.Context, locationID uint) ([]dto.DeviceView, error) {
+func (s *locationService) ListDevicesInLocation(
+	ctx context.Context,
+	locationID uint,
+) ([]dto.DeviceView, error) {
 	devices, err := s.dr.GetDevicesByLocationID(ctx, locationID)
 	if err != nil {
 		return nil, err
@@ -196,4 +221,101 @@ func (s *locationService) ListDevicesInLocation(ctx context.Context, locationID 
 		return []dto.DeviceView{}, nil
 	}
 	return deviceViews, nil
+}
+
+func (s *locationService) SevenDaysReadings(
+	ctx context.Context,
+	locationID uint,
+) ([]dto.ReadingsResponse, error) {
+
+	if locationID == 0 {
+		return []dto.ReadingsResponse{}, nil
+	}
+
+	deviceInThatLocation, err := s.dr.GetDevicesByLocationID(
+		ctx,
+		locationID,
+	)
+	if err != nil {
+		return []dto.ReadingsResponse{}, err
+	}
+	if len(deviceInThatLocation) == 0 {
+		return []dto.ReadingsResponse{}, nil
+	}
+	if len(deviceInThatLocation) == 1 {
+		responses, err := s.sevenDaysReadingFromSingleMicroController(ctx, locationID, deviceInThatLocation[0].ID)
+		if err != nil {
+			return nil, err
+		}
+		return responses, nil
+	}
+	var deviceIDs []uint
+	for _, d := range deviceInThatLocation {
+		deviceIDs = append(deviceIDs, d.ID)
+	}
+	return s.sevenDaysReadingFromSingleMicroControllers(ctx, locationID, deviceIDs)
+}
+
+func (s *locationService) sevenDaysReadingFromSingleMicroControllers(
+	ctx context.Context,
+	locationID uint,
+	deviceID []uint,
+) ([]dto.ReadingsResponse, error) {
+	if len(deviceID) == 0 {
+		return []dto.ReadingsResponse{}, nil
+	}
+
+	g, gCtx := errgroup.WithContext(ctx)
+	var mu sync.Mutex
+	responsesPerDevice := map[uint][]dto.ReadingsResponse{}
+
+	for _, dID := range deviceID {
+		dID := dID
+		g.Go(func() error {
+			responses, err := s.sevenDaysReadingFromSingleMicroController(gCtx, locationID, dID)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			responsesPerDevice[dID] = responses
+			mu.Unlock()
+			return nil
+		})
+	}
+
+	err := g.Wait()
+	if err != nil {
+		return []dto.ReadingsResponse{}, err
+	}
+
+	var finalResponses []dto.ReadingsResponse
+	for _, res := range responsesPerDevice {
+		finalResponses = append(finalResponses, res...)
+	}
+	if len(finalResponses) == 0 {
+		return []dto.ReadingsResponse{}, nil
+	}
+	return finalResponses, nil
+}
+func (s *locationService) sevenDaysReadingFromSingleMicroController(
+	ctx context.Context,
+	locationID uint,
+	deviceID uint,
+) ([]dto.ReadingsResponse, error) {
+	readings, err := s.rr.SevenDaysReadingsByLocation(ctx, locationID, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	var responses []dto.ReadingsResponse
+	for _, r := range readings {
+		responses = append(responses, dto.ReadingsResponse{
+			Voltage:   r.Voltage,
+			Current:   r.Current,
+			CreatedAt: r.Bucket,
+		})
+	}
+	if len(responses) == 0 {
+		return []dto.ReadingsResponse{}, nil
+	}
+	return responses, nil
 }

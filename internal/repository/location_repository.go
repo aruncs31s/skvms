@@ -52,13 +52,18 @@ type LocationReader interface {
 		locationID uint,
 	) (int, error)
 }
+
 type locationRepository struct {
 	db *gorm.DB
 }
 
 func NewLocationRepository(db *gorm.DB) LocationRepository {
-	return &locationRepository{db: db}
+	// Move this to seperate constructor
+	return &locationRepository{
+		db: db,
+	}
 }
+
 func (r *locationRepository) List(ctx context.Context) ([]model.Location, error) {
 	var locations []model.Location
 	if err := r.
@@ -79,6 +84,7 @@ func (r *locationRepository) GetByID(ctx context.Context, id uint) (*model.Locat
 	}
 	return &location, nil
 }
+
 func (r *locationRepository) GetByCode(ctx context.Context, code string) (*model.Location, error) {
 	var location model.Location
 	if err := r.db.WithContext(ctx).Where("location_code = ?", code).First(&location).Error; err != nil {
@@ -86,15 +92,19 @@ func (r *locationRepository) GetByCode(ctx context.Context, code string) (*model
 	}
 	return &location, nil
 }
+
 func (r *locationRepository) Create(ctx context.Context, location *model.Location) error {
 	return r.db.WithContext(ctx).Create(location).Error
 }
+
 func (r *locationRepository) Update(ctx context.Context, location *model.Location) error {
 	return r.db.WithContext(ctx).Save(location).Error
 }
+
 func (r *locationRepository) Delete(ctx context.Context, id uint) error {
 	return r.db.WithContext(ctx).Delete(&model.Location{}, id).Error
 }
+
 func (r *locationRepository) Search(
 	ctx context.Context,
 	query string,
@@ -107,6 +117,7 @@ func (r *locationRepository) Search(
 	}
 	return locations, nil
 }
+
 func (r *locationRepository) GetConnectedDevicesCount(
 	ctx context.Context,
 	locationID uint,
@@ -122,6 +133,7 @@ func (r *locationRepository) GetConnectedDevicesCount(
 		Count(&count).Error
 	return int(count), err
 }
+
 func (r *locationRepository) GetUserCount(ctx context.Context, locationID uint) (int, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
