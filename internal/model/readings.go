@@ -10,8 +10,14 @@ type Reading struct {
 	Current  float64 `gorm:"column:current" json:"current"`
 
 	// Switch to CreatedAt to use time.Time for better handling
-	CreatedAt time.Time `gorm:"column:created_at;autoCreateTime" json:"created_at"`
+	CreatedAt time.Time `gorm:"column:created_at;index;autoCreateTime" json:"created_at"`
 	Device    Device    `gorm:"foreignKey:DeviceID;references:ID"`
+}
+
+type SevenDaysReadings struct {
+	Voltage float64   `gorm:"column:voltage"`
+	Current float64   `gorm:"column:current"`
+	Bucket  time.Time `gorm:"column:bucket"`
 }
 
 func (Reading) TableName() string {

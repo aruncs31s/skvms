@@ -233,3 +233,27 @@ func (h *LocationHandler) ListDevicesInLocation(c *gin.Context) {
 	)
 	c.JSON(http.StatusOK, gin.H{"devices": devices})
 }
+
+func (h *LocationHandler) GetSevenDaysReadings(c *gin.Context) {
+	locationID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid location id"})
+		return
+	}
+	responses, err := h.locationService.SevenDaysReadings(c.Request.Context(), uint(locationID))
+	if err != nil {
+		logger.GetLogger().Error("Failed to get seven days readings for location",
+			zap.Error(err),
+			zap.Uint("location_id", uint(locationID)),
+			zap.String("ip", c.ClientIP()),
+		)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load readings for location"})
+		return
+	}
+
+	logger.GetLogger().Debug("Seven days readings for location retrieved successfully",
+		zap.Uint("location_id", uint(locationID)),
+		zap.Int("device_count", len(responses)),
+	)
+	c.JSON(http.StatusOK, gin.H{"readings": responses})
+}

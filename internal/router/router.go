@@ -348,5 +348,7 @@ func (r *Router) setupLocationRoutes(api *gin.RouterGroup, auditMiddleware *midd
 		locationAPI.DELETE("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_delete"), r.locationHandler.DeleteLocation)
 		locationAPI.GET("/:id/devices", r.locationHandler.ListDevicesInLocation)
 
+		locationAPI.GET("/:id/readings/seven", r.locationHandler.GetSevenDaysReadings)
+
 	}
 }
