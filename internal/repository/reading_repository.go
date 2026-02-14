@@ -2,20 +2,23 @@ package repository
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/utils"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
 type ReadingRepository interface {
-	ListByDevice(
-		ctx context.Context,
-		deviceID uint,
-		limit int,
-	) ([]model.Reading, error)
+	// ListByDevice(
+	// 	ctx context.Context,
+	// 	deviceID uint,
+	// 	limit int,
+	// ) ([]model.Reading, error)
 	ListByDeviceAndDateRange(
 		ctx context.Context,
 		deviceID uint,
@@ -67,27 +70,42 @@ func NewReadingRepository(db *gorm.DB) ReadingRepository {
 	return &readingRepository{db: db}
 }
 
-func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, error) {
-	if limit <= 0 {
-		limit = 50
-	}
-	if limit > 500 {
-		limit = 500
-	}
+// func (r *readingRepository) ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, error) {
+// 	if limit <= 0 {
+// 		limit = 50
+// 	}
+// 	if limit > 500 {
+// 		limit = 500
+// 	}
 
-	var readings []model.Reading
-	err := r.db.WithContext(ctx).
-		Where("device_id = ?", deviceID).
-		Order("created_at DESC").
-		Limit(limit).
-		Find(&readings).Error
-	if err != nil {
-		return nil, err
-	}
-	return readings, nil
-}
+// 	var readings []model.Reading
+// 	err := r.db.WithContext(ctx).
+// 		Where("device_id = ?", deviceID).
+// 		Order("created_at DESC").
+// 		Limit(limit).
+// 		Find(&readings).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return readings, nil
+// }
 
-func (r *readingRepository) ListByDeviceWithInterval(ctx context.Context, deviceID uint, startTime, endTime time.Time, interval time.Duration, count int) ([]model.Reading, error) {
+func (r *readingRepository) ListByDeviceWithInterval(
+	ctx context.Context,
+	deviceID uint,
+	startTime time.Time,
+	endTime time.Time,
+	interval time.Duration,
+	count int,
+) ([]model.Reading, error) {
+	logger.GetLogger().Info(
+		"[ListByDeviceWithInterval]",
+		zap.String("device_id", strconv.FormatUint(uint64(deviceID), 10)),
+		zap.String("start_time", startTime.Format(time.RFC3339)),
+		zap.String("end_time", endTime.Format(time.RFC3339)),
+		zap.Duration("interval", interval),
+		zap.Int("count", count),
+	)
 	if count <= 0 {
 		count = 50
 	}
@@ -157,7 +175,12 @@ func (r *readingRepository) ListByDeviceWithInterval(ctx context.Context, device
 	return readings, nil
 }
 
-func (r *readingRepository) ListByDeviceAndDateRange(ctx context.Context, deviceID uint, startTime, endTime time.Time) ([]model.Reading, error) {
+func (r *readingRepository) ListByDeviceAndDateRange(
+	ctx context.Context,
+	deviceID uint,
+	startTime,
+	endTime time.Time,
+) ([]model.Reading, error) {
 	var readings []model.Reading
 	err := r.db.WithContext(ctx).
 		Where("device_id = ? AND created_at >= ? AND created_at <= ?", deviceID, startTime, endTime).

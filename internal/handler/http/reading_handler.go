@@ -19,6 +19,7 @@ func NewReadingHandler(readingService service.ReadingService) *ReadingHandler {
 	return &ReadingHandler{readingService: readingService}
 }
 
+// Get Todays readings for a device
 func (h *ReadingHandler) ListByDevice(c *gin.Context) {
 	deviceID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

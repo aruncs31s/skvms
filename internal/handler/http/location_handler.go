@@ -154,7 +154,11 @@ func (h *LocationHandler) UpdateLocation(c *gin.Context) {
 		return
 	}
 
-	if err := h.locationService.Update(c.Request.Context(), req); err != nil {
+	if err := h.locationService.Update(
+		c.Request.Context(),
+		uint(id),
+		req,
+	); err != nil {
 		logger.GetLogger().Error("Failed to update location",
 			zap.Error(err),
 			zap.Uint("location_id", uint(id)),
