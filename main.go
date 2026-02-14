@@ -113,7 +113,27 @@ func main() {
 	)
 
 	ginRouter := appRouter.SetupRouter()
-
+	//
+	// azf.InitAuthZModule(
+	// 	db,
+	// 	nil,
+	// 	logger.GetLogger(),
+	// )
+	// // 2. Initialize API usage tracking
+	// azf.InitUsageTracking()
+	//
+	// // 3. Apply tracking middleware
+	// azf.SetApiTrackingMiddleware(ginRouter)
+	//
+	// // 4. Setup the Admin UI routes (dashboard, analytics, roles, etc.)
+	// azf.SetupUI(ginRouter)
+	//
+	// // 5. Apply authorization middleware (protects routes registered AFTER this)
+	// azf.SetAuthZMiddleware(ginRouter)
+	//
+	// // 6. (Optional) Apply rate limiting middleware
+	// azf.SetRateLimitMiddleware(ginRouter, 10.0, 20) // 10 req/s, burst of 20
+	//
 	serverAddr := fmt.Sprintf(":%s", cfg.ServerPort)
 	srv := &http.Server{
 		Addr:    serverAddr,
