@@ -7,10 +7,15 @@ import (
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
+	"github.com/aruncs31s/skvms/utils"
 )
 
 type ReadingService interface {
-	ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, *model.Reading, error)
+	ListByDevice(
+		ctx context.Context,
+		deviceID uint,
+		limit int,
+	) ([]model.Reading, *model.Reading, error)
 	ListByDeviceAndDateRange(
 		ctx context.Context,
 		deviceID uint,
@@ -65,7 +70,13 @@ func NewReadingService(
 }
 
 func (s *readingService) ListByDevice(ctx context.Context, deviceID uint, limit int) ([]model.Reading, *model.Reading, error) {
-	readings, err := s.repo.ListByDevice(ctx, deviceID, limit)
+
+	readings, err := s.repo.ListByDeviceAndDateRange(
+		ctx,
+		deviceID,
+		utils.GetBeginningOfDay(),
+		utils.GetEndOfDay(),
+	)
 	if err != nil {
 		return nil, nil, err
 	}

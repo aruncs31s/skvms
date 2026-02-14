@@ -8,7 +8,9 @@ import (
 )
 
 type User struct {
-	ID   uint   `gorm:"primaryKey;autoIncrement" json:"id"`
+	ID         uint  `gorm:"primaryKey;autoIncrement" json:"id"`
+	LocationID *uint `gorm:"column:location_id" json:"location_id"`
+
 	Name string `gorm:"column:name" json:"name"`
 
 	Username string `gorm:"column:username;unique" json:"username"`

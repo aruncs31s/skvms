@@ -45,6 +45,7 @@ type LocationReader interface {
 	GetConnectedDevicesCount(
 		ctx context.Context,
 		locationID uint,
+		hardwareTypes ...model.HardwareType,
 	) (int, error)
 	GetUserCount(
 		ctx context.Context,
@@ -106,10 +107,17 @@ func (r *locationRepository) Search(
 	}
 	return locations, nil
 }
-func (r *locationRepository) GetConnectedDevicesCount(ctx context.Context, locationID uint) (int, error) {
+func (r *locationRepository) GetConnectedDevicesCount(
+	ctx context.Context,
+	locationID uint,
+	hardwareTypes ...model.HardwareType,
+) (int, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
 		Table("device_assignment").
+		Joins("JOIN devices d On device_assignment.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Where("dt.hardware_type IN ?", hardwareTypes).
 		Where("location_id = ?", locationID).
 		Count(&count).Error
 	return int(count), err

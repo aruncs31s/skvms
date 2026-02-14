@@ -20,6 +20,7 @@ type LocationWriter interface {
 	) error
 	Update(
 		ctx context.Context,
+		id uint,
 		location dto.UpdateLocationRequest,
 	) error
 	Delete(
@@ -71,7 +72,13 @@ func (s *locationService) List(ctx context.Context) ([]dto.LocationResponse, err
 	dc := map[uint]int{}
 	uc := map[uint]int{}
 	for _, loc := range locations {
-		c, err := s.repo.GetConnectedDevicesCount(ctx, loc.ID)
+		c, err := s.repo.GetConnectedDevicesCount(
+			ctx,
+			loc.ID,
+			[]model.HardwareType{
+				model.HardwareTypeSolar,
+			}...,
+		)
 		if err != nil {
 			dc[loc.ID] = 0
 		}
@@ -108,9 +115,12 @@ func (s *locationService) GetByID(ctx context.Context, id uint) (*dto.LocationRe
 		return nil, err
 	}
 	return &dto.LocationResponse{
-		ID:   location.ID,
-		Code: location.Code,
-		Name: location.Name,
+		ID:      location.ID,
+		Code:    location.Code,
+		Name:    location.Name,
+		State:   location.State,
+		City:    location.City,
+		PinCode: location.PinCode,
 	}, nil
 }
 
@@ -149,13 +159,16 @@ func (s *locationService) Create(ctx context.Context, location dto.CreateLocatio
 	})
 }
 
-func (s *locationService) Update(ctx context.Context, location dto.UpdateLocationRequest) error {
-	existing, err := s.repo.GetByID(ctx, location.ID)
+func (s *locationService) Update(ctx context.Context, locationID uint, location dto.UpdateLocationRequest) error {
+	existing, err := s.repo.GetByID(ctx, locationID)
 	if err != nil {
 		return err
 	}
 	existing.Code = location.Code
 	existing.Name = location.Name
+	existing.City = location.City
+	existing.State = location.State
+	existing.PinCode = location.PinCode
 	return s.repo.Update(ctx, existing)
 }
 
@@ -178,6 +191,9 @@ func (s *locationService) ListDevicesInLocation(ctx context.Context, locationID 
 			MACAddress:      d.MACAddress,
 			Status:          d.DeviceState,
 		})
+	}
+	if len(deviceViews) == 0 {
+		return []dto.DeviceView{}, nil
 	}
 	return deviceViews, nil
 }

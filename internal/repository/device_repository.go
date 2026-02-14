@@ -136,6 +136,7 @@ type DeviceReader interface {
 		hardwareType model.HardwareType,
 		userID uint,
 	) (*[]model.DeviceView, error)
+	// Solar Devices Only
 	GetDevicesByLocationID(
 		ctx context.Context,
 		locationID uint,
@@ -250,7 +251,6 @@ func (r *deviceRepository) GetDevice(ctx context.Context, id uint) (*model.Devic
 	err := r.db.WithContext(ctx).
 		Preload("DeviceState").
 		Preload("Details").
-		Preload("Address").
 		Preload("DeviceType").
 		Preload("Version").
 		First(&device, id).Error
@@ -799,7 +799,7 @@ func (r *deviceRepository) GetDevicesByLocationID(ctx context.Context, locationI
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d	.version_id").
 		Joins("JOIN device_assignment da ON da.device_id = d.id").
-		Where("da.location_id = ?", locationID)
+		Where("da.location_id = ? AND dt.hardware_type = ?", locationID, int(model.HardwareTypeSolar))
 
 	err := query.Scan(&devices).Error
 	if err != nil {
