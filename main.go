@@ -46,6 +46,7 @@ func main() {
 	auditRepo := repository.NewAuditRepository(db)
 	deviceTypesRepo := repository.NewDeviceTypesRepository(db)
 	versionRepo := repository.NewVersionRepository(db)
+	locationRepo := repository.NewLocationRepository(db)
 
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret)
 	deviceAuthService := service.NewDeviceAuthService(deviceRepo, userRepo, cfg.JWTSecret)
@@ -72,6 +73,7 @@ func main() {
 	deviceTypesService := service.NewDeviceTypesService(deviceTypesRepo)
 	versionService := service.NewVersionService(versionRepo)
 	adminService := service.NewAdminService(userRepo, deviceRepo, readingRepo, auditRepo)
+	locationService := service.NewLocationService(locationRepo, deviceRepo)
 
 	authHandler := httpHandler.NewAuthHandler(authService, auditService)
 	deviceAuthHandler := httpHandler.NewDeviceAuthHandler(deviceAuthService, auditService)
@@ -85,6 +87,7 @@ func main() {
 	deviceStateHandler := httpHandler.NewDeviceStateHandler(deviceStateService, service.NewDeviceStateHistoryService(
 		repository.NewDeviceStateHistoryRepository(db),
 	), auditService)
+	locationHandler := httpHandler.NewLocationHandler(locationService, auditService)
 
 	// Initialize codegen service and handler
 	codegenService := codegen.NewService("")
@@ -103,6 +106,7 @@ func main() {
 		deviceStateHandler,
 		adminHandler,
 		codegenHandler,
+		locationHandler,
 		auditService,
 		deviceAuthService,
 		cfg.JWTSecret,

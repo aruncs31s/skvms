@@ -74,8 +74,6 @@ func (s *solarService) mapDeviceToDeviceView(
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
 		FirmwareVersion: d.Version.Name,
-		Address:         d.Address.Address,
-		City:            d.Address.City,
 	}
 }
 func (s *solarService) CreateASolarDevice(
@@ -113,10 +111,8 @@ func (s *solarService) CreateASolarDevice(
 	}
 	details := model.DeviceDetails{} // Empty details for solar devices
 
-	address := model.DeviceAddress{
-		Address: req.Address,
-		City:    req.City,
-	}
+	// DeviceAssignment is now just LocationID and DeviceID
+	var assignment *model.DeviceAssignment = nil
 
 	// Get Initial Device State ID
 	initialStateID, err := s.deviceStateRepo.GetInitialDeviceStateID(
@@ -135,7 +131,7 @@ func (s *solarService) CreateASolarDevice(
 		device,
 		req.ConnectedMicroControllerID,
 		&details,
-		&address,
+		assignment,
 	)
 	if err != nil {
 		return dto.DeviceView{}, err

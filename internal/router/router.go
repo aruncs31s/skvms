@@ -21,6 +21,7 @@ type Router struct {
 	deviceStateHandler *httpHandler.DeviceStateHandler
 	adminHandler       *httpHandler.AdminHandler
 	codegenHandler     *httpHandler.CodeGenHandler
+	locationHandler    *httpHandler.LocationHandler
 	auditService       service.AuditService
 	deviceAuthService  service.DeviceAuthService
 	jwtSecret          string
@@ -39,6 +40,7 @@ func NewRouter(
 	deviceStateHandler *httpHandler.DeviceStateHandler,
 	adminHandler *httpHandler.AdminHandler,
 	codegenHandler *httpHandler.CodeGenHandler,
+	locationHandler *httpHandler.LocationHandler,
 	auditService service.AuditService,
 	deviceAuthService service.DeviceAuthService,
 	jwtSecret string,
@@ -55,6 +57,7 @@ func NewRouter(
 		deviceStateHandler: deviceStateHandler,
 		adminHandler:       adminHandler,
 		codegenHandler:     codegenHandler,
+		locationHandler:    locationHandler,
 		auditService:       auditService,
 		deviceAuthService:  deviceAuthService,
 		jwtSecret:          jwtSecret,
@@ -157,6 +160,9 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 
 		// Codegen routes (ESP32 firmware generation)
 		r.setupCodegenRoutes(api)
+
+		// Location routes
+		r.setupLocationRoutes(api, auditMiddleware)
 	}
 }
 
@@ -327,5 +333,20 @@ func (r *Router) setupSensorRoutes(api *gin.RouterGroup) {
 		sensorAPI.GET("/:id", r.deviceHandler.GetSensorDevice)
 		sensorAPI.GET("/:id/connected", r.deviceHandler.GetConnectedDevices)
 		sensorAPI.GET("/search", r.deviceHandler.SearchSensorDevices)
+	}
+}
+
+// setupLocationRoutes configures location related routes
+func (r *Router) setupLocationRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
+	locationAPI := api.Group("/locations")
+	{
+		locationAPI.GET("", r.locationHandler.ListLocations)
+		locationAPI.GET("/:id", r.locationHandler.GetLocation)
+		locationAPI.GET("/search", r.locationHandler.SearchLocations)
+		locationAPI.POST("", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_create"), r.locationHandler.CreateLocation)
+		locationAPI.PUT("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_update"), r.locationHandler.UpdateLocation)
+		locationAPI.DELETE("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("location_delete"), r.locationHandler.DeleteLocation)
+		locationAPI.GET("/:id/devices", r.locationHandler.ListDevicesInLocation)
+
 	}
 }

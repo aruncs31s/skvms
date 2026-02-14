@@ -12,6 +12,9 @@ import (
 )
 
 func Seed(db *gorm.DB) error {
+	if err := seedLocations(db); err != nil {
+		return err
+	}
 	if err := seedDeviceTypes(db); err != nil {
 		return err
 	}
@@ -35,6 +38,25 @@ func Seed(db *gorm.DB) error {
 	}
 	if err := seedAuditLogs(db); err != nil {
 		return err
+	}
+	return nil
+}
+
+/* ---------------- Locations ---------------- */
+
+func seedLocations(db *gorm.DB) error {
+	locations := []model.Location{
+		{Name: "Kannur", Code: "KNR"},
+		{Name: "Dharmassala", Code: "DMR"},
+	}
+	for _, loc := range locations {
+		if err := db.FirstOrCreate(
+			&model.Location{},
+			model.Location{Name: loc.Name},
+			loc,
+		).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -274,10 +296,9 @@ func seedDevices(db *gorm.DB) error {
 				return err
 			}
 
-			if err := tx.Create(&model.DeviceAddress{
-				DeviceID: device.ID,
-				Address:  "Smart Kerala Facility",
-				City:     "Kochi",
+			if err := tx.Create(&model.DeviceAssignment{
+				DeviceID:   device.ID,
+				LocationID: 1,
 			}).Error; err != nil {
 				return err
 			}

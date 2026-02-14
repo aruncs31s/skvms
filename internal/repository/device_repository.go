@@ -32,13 +32,13 @@ type DeviceRepository interface {
 		ctx context.Context,
 		device *model.Device,
 		details *model.DeviceDetails,
-		address *model.DeviceAddress,
+		assignment *model.DeviceAssignment,
 	) (*model.Device, error)
 	UpdateDevice(
 		ctx context.Context,
 		device *model.Device,
 		details *model.DeviceDetails,
-		address *model.DeviceAddress,
+		assignment *model.DeviceAssignment,
 	) error
 	DeleteDevice(
 		ctx context.Context,
@@ -136,6 +136,10 @@ type DeviceReader interface {
 		hardwareType model.HardwareType,
 		userID uint,
 	) (*[]model.DeviceView, error)
+	GetDevicesByLocationID(
+		ctx context.Context,
+		locationID uint,
+	) ([]model.DeviceView, error)
 }
 
 type deviceRepository struct {
@@ -160,8 +164,6 @@ func (r *deviceRepository) mapDeviceToDeviceView(d model.Device) dto.DeviceView 
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
 		FirmwareVersion: d.Version.Name,
-		Address:         d.Address.Address,
-		City:            d.Address.City,
 	}
 }
 
@@ -265,7 +267,7 @@ func (r *deviceRepository) CreateDevice(
 	ctx context.Context,
 	device *model.Device,
 	details *model.DeviceDetails,
-	address *model.DeviceAddress,
+	assignment *model.DeviceAssignment,
 ) (*model.Device, error) {
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -281,13 +283,12 @@ func (r *deviceRepository) CreateDevice(
 		if err := tx.Create(detailsStruct).Error; err != nil {
 			return err
 		}
-		if address != nil {
-			addressStruct := &model.DeviceAddress{
-				DeviceID: device.ID,
-				Address:  address.Address,
-				City:     address.City,
+		if assignment != nil {
+			assignmentStruct := &model.DeviceAssignment{
+				DeviceID:   device.ID,
+				LocationID: assignment.LocationID,
 			}
-			if err := tx.Create(addressStruct).Error; err != nil {
+			if err := tx.Create(assignmentStruct).Error; err != nil {
 				return err
 			}
 		}
@@ -297,14 +298,14 @@ func (r *deviceRepository) CreateDevice(
 		return nil, err
 	}
 	device.Details = *details
-	if address != nil {
-		device.Address = *address
+	if assignment != nil {
+		device.Assignment = *assignment
 	}
 
 	return device, nil
 }
 
-func (r *deviceRepository) UpdateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, address *model.DeviceAddress) error {
+func (r *deviceRepository) UpdateDevice(ctx context.Context, device *model.Device, details *model.DeviceDetails, assignment *model.DeviceAssignment) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(device).Error; err != nil {
 			return err
@@ -312,8 +313,10 @@ func (r *deviceRepository) UpdateDevice(ctx context.Context, device *model.Devic
 		if err := tx.Where("device_id = ?", device.ID).Save(details).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("device_id = ?", device.ID).Save(address).Error; err != nil {
-			return err
+		if assignment != nil {
+			if err := tx.Where("device_id = ?", device.ID).Save(assignment).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -324,7 +327,7 @@ func (r *deviceRepository) DeleteDevice(ctx context.Context, id uint) error {
 		if err := tx.Where("device_id = ?", id).Delete(&model.DeviceDetails{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("device_id = ?", id).Delete(&model.DeviceAddress{}).Error; err != nil {
+		if err := tx.Where("device_id = ?", id).Delete(&model.DeviceAssignment{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&model.Device{}, id).Error; err != nil {
@@ -440,12 +443,13 @@ func (r *deviceRepository) GetDevicesByHardwareType(
 		"details.ip_address",
 		"details.mac_address",
 		"v.name  as firmware_version",
-		"device_address.address",
-		"device_address.city",
+		"locations.name as address",
+		"locations.city",
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
+		Joins("LEFT JOIN locations ON locations.id = device_assignment.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id")
@@ -481,7 +485,7 @@ func (r *deviceRepository) GetUsersDevicesByHardwareType(
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id")
@@ -708,12 +712,13 @@ func (r *deviceRepository) GetDevicesByState(
 		"details.ip_address",
 		"details.mac_address",
 		"v.name  as firmware_version",
-		"device_address.address",
-		"device_address.city",
+		"locations.name as address",
+		"locations.city",
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
+		Joins("LEFT JOIN locations ON locations.id = device_assignment.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id").
@@ -772,4 +777,33 @@ func (r *deviceRepository) GetConnectedDevicesByIDs(
 		result[reading.ParentDevice] = reading
 	}
 	return result, nil
+}
+func (r *deviceRepository) GetDevicesByLocationID(ctx context.Context, locationID uint) ([]model.DeviceView, error) {
+	var devices []model.DeviceView
+
+	query := r.db.
+		WithContext(ctx).
+		Table("devices as d")
+	query.Select([]string{
+		"d.id",
+		"d.name",
+		"COALESCE(dt.name, 'Unknown') AS type",
+		"dt.hardware_type as hardware_type",
+		"details.ip_address",
+		"details.mac_address",
+		"v.name  as firmware_version",
+		"ds.name  as current_state",
+	}).
+		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("JOIN device_types dt ON dt.id = d.device_type").
+		Joins("JOIN device_states ds ON d.current_state  = ds.id").
+		Joins("JOIN versions v ON v.id = d	.version_id").
+		Joins("JOIN device_assignment da ON da.device_id = d.id").
+		Where("da.location_id = ?", locationID)
+
+	err := query.Scan(&devices).Error
+	if err != nil {
+		return nil, err
+	}
+	return devices, nil
 }

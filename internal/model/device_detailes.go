@@ -10,8 +10,6 @@ type DeviceView struct {
 	IPAddress       string       `gorm:"column:ip_address"`
 	MACAddress      string       `gorm:"column:mac_address"`
 	FirmwareVersion string       `gorm:"column:firmware_version"`
-	Address         string       `gorm:"column:address"`
-	City            string       `gorm:"column:city"`
 	DeviceState     string       `gorm:"column:current_state"`
 }
 type MicrocontrollerDeviceView struct {

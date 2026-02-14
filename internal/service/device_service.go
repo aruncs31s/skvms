@@ -128,8 +128,6 @@ func (s *deviceService) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
 		IPAddress:       d.Details.IPAddress,
 		MACAddress:      d.Details.MACAddress,
 		FirmwareVersion: d.Version.Name,
-		Address:         d.Address.Address,
-		City:            d.Address.City,
 	}
 }
 
@@ -153,8 +151,6 @@ func (s *deviceService) mapToDeviceModelViewToView(d model.DeviceView) dto.Devic
 		IPAddress:       d.IPAddress,
 		MACAddress:      d.MACAddress,
 		FirmwareVersion: d.FirmwareVersion,
-		Address:         d.Address,
-		City:            d.City,
 		// Their State is the status
 		Status: d.DeviceState,
 	}
@@ -283,11 +279,11 @@ func (s *deviceService) CreateDevice(
 		MACAddress: req.MACAddress,
 	}
 
-	address := &model.DeviceAddress{
-		Address: req.Address,
-		City:    req.City,
-	}
-	newDevice, err := s.repo.CreateDevice(ctx, device, details, address)
+	// DeviceAssignment is now just LocationID and DeviceID
+	// We don't have Address and City anymore - those are in Location
+	var assignment *model.DeviceAssignment = nil
+
+	newDevice, err := s.repo.CreateDevice(ctx, device, details, assignment)
 	if err != nil {
 		return dto.DeviceView{}, err
 	}
@@ -337,15 +333,7 @@ func (s *deviceService) UpdateDevice(
 		existing.VersionID = req.FirmwareVersionID
 	}
 
-	// Update address fields if provided
-	if req.Address != nil {
-		existing.Address.Address = *req.Address
-	}
-	if req.City != nil {
-		existing.Address.City = *req.City
-	}
-
-	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
+	return s.repo.UpdateDevice(ctx, existing, &existing.Details, nil)
 }
 
 func (s *deviceService) FullUpdateDevice(
@@ -376,11 +364,7 @@ func (s *deviceService) FullUpdateDevice(
 
 	existing.VersionID = &req.FirmwareVersionID
 
-	// Update address
-	existing.Address.Address = req.Address
-	existing.Address.City = req.City
-
-	return s.repo.UpdateDevice(ctx, existing, &existing.Details, &existing.Address)
+	return s.repo.UpdateDevice(ctx, existing, &existing.Details, nil)
 }
 
 func (s *deviceService) DeleteDevice(ctx context.Context, id uint) error {
@@ -565,8 +549,6 @@ func (s *deviceService) CreateMicrocontrollerDevice(
 			return err
 		}
 
-		deviceView.Address = parentDevice.Address.Address
-		deviceView.City = parentDevice.Address.City
 		deviceView.HardwareType = parentDevice.DeviceType.HardwareType
 		deviceView.Type = parentDevice.DeviceType.Name
 		deviceView.ID = device.ID

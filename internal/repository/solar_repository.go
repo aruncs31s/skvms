@@ -19,7 +19,7 @@ type SolarRepository interface {
 		device *model.Device,
 		connectedID *uint,
 		details *model.DeviceDetails,
-		address *model.DeviceAddress,
+		assignment *model.DeviceAssignment,
 	) (*model.Device, error)
 	GetAllMySolarDevices(
 		ctx context.Context,
@@ -71,12 +71,13 @@ func (r *solarRepository) GetAllSolarDevices(
 
 func (r *solarRepository) getAddressAndIP(
 	m *model.DeviceView,
-	// Address , City , IPAddress
+	// IPAddress only now, no more Address/City
 ) (string, string, string) {
 	if m == nil {
 		return "", "", ""
 	}
-	return m.Address, m.City, m.IPAddress
+	// Return empty strings for address and city since they're no longer in the model
+	return "", "", m.IPAddress
 }
 
 func (r *solarRepository) getConnectedMCs(
@@ -166,13 +167,13 @@ func (r *solarRepository) CreateASolarDevice(
 	device *model.Device,
 	connectedID *uint,
 	details *model.DeviceDetails,
-	address *model.DeviceAddress,
+	assignment *model.DeviceAssignment,
 ) (*model.Device, error) {
 	createdDevice, err := r.deviceRepo.CreateDevice(
 		ctx,
 		device,
 		details,
-		address,
+		assignment,
 	)
 
 	if err != nil {

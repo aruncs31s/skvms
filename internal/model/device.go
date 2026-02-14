@@ -72,7 +72,7 @@ type Device struct {
 	CurrentState uint `gorm:"column:current_state;index"`
 
 	Details          DeviceDetails     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
-	Address          DeviceAddress     `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
+	Assignment       DeviceAssignment  `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	DeviceType       DeviceTypes       `gorm:"foreignKey:DeviceTypeID;references:ID"`
 	Version          Version           `gorm:"foreignKey:VersionID;references:ID"`
 	Readings         []Reading         `gorm:"foreignKey:DeviceID;references:ID"`

@@ -22,7 +22,7 @@ func New(cfg config.Config) (*gorm.DB, error) {
 		&model.User{},
 		&model.Device{},
 		&model.DeviceDetails{},
-		&model.DeviceAddress{},
+		&model.DeviceAssignment{},
 		&model.Reading{},
 		&model.AuditLog{},
 		&model.DeviceTypes{},
@@ -32,6 +32,7 @@ func New(cfg config.Config) (*gorm.DB, error) {
 		&model.ConnectedDevice{},
 		&model.DeviceState{},
 		&model.DeviceStateHistory{},
+		&model.Location{},
 	); err != nil {
 		return nil, err
 	}

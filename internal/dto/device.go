@@ -12,8 +12,6 @@ type DeviceView struct {
 	IPAddress       string             `json:"ip_address"`
 	MACAddress      string             `json:"mac_address"`
 	FirmwareVersion string             `json:"firmware_version"`
-	Address         string             `json:"address"`
-	City            string             `json:"city"`
 }
 type MicrocontrollerDeviceView struct {
 	ID               uint               `json:"id"`
@@ -46,8 +44,6 @@ type CreateDeviceRequest struct {
 	IPAddress         string `json:"ip_address" `
 	MACAddress        string `json:"mac_address"`
 	FirmwareVersionID uint   `json:"firmware_version_id"`
-	Address           string `json:"address"`
-	City              string `json:"city"`
 }
 
 type CreateConnectedDeviceRequest struct {
@@ -63,8 +59,6 @@ type UpdateDeviceRequest struct {
 	IPAddress         *string `json:"ip_address,omitempty"`
 	MACAddress        *string `json:"mac_address,omitempty"`
 	FirmwareVersionID *uint   `json:"firmware_version_id,omitempty"`
-	Address           *string `json:"address,omitempty"`
-	City              *string `json:"city,omitempty"`
 }
 
 type FullUpdateDeviceRequest struct {
@@ -73,8 +67,6 @@ type FullUpdateDeviceRequest struct {
 	IPAddress         string `json:"ip_address" binding:"required"`
 	MACAddress        string `json:"mac_address" binding:"required"`
 	FirmwareVersionID uint   `json:"firmware_version_id" binding:"required"`
-	Address           string `json:"address" binding:"required"`
-	City              string `json:"city" binding:"required"`
 	CurrentState      uint   `json:"current_state" binding:"required"`
 }
 
