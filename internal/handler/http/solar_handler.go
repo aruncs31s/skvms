@@ -42,6 +42,9 @@ func (h *SolarHandler) GetAllSolarDevices(
 		)
 		return
 	}
+	if len(*solarDevices) == 0 {
+		solarDevices = &[]dto.SolarDeviceView{}
+	}
 	c.JSON(
 		200,
 		gin.H{
