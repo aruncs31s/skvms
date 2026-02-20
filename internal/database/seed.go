@@ -12,9 +12,9 @@ import (
 )
 
 func Seed(db *gorm.DB) error {
-	if err := seedLocations(db); err != nil {
-		return err
-	}
+	// if err := seedLocations(db); err != nil {
+	// 	return err
+	// }
 	if err := seedDeviceTypes(db); err != nil {
 		return err
 	}
@@ -24,9 +24,9 @@ func Seed(db *gorm.DB) error {
 	if err := seedAdminUser(db); err != nil {
 		return err
 	}
-	// if err := seedVersions(db); err != nil {
-	// 	return err
-	// }
+	if err := seedVersions(db); err != nil {
+		return err
+	}
 	// if err := seedDevices(db); err != nil {
 	// 	return err
 	// }
@@ -188,8 +188,8 @@ func seedAdminUser(db *gorm.DB) error {
 func seedVersions(db *gorm.DB) error {
 	versions := []string{
 		"1.0.0",
-		"1.0.1",
-		"2.0.0",
+		// "1.0.1",
+		// "2.0.0",
 	}
 
 	for _, v := range versions {
@@ -201,36 +201,36 @@ func seedVersions(db *gorm.DB) error {
 		}
 	}
 
-	var v2 model.Version
-	if err := db.Where("name = ?", "2.0.0").First(&v2).Error; err != nil {
-		return err
-	}
+	// var v2 model.Version
+	// if err := db.Where("name = ?", "2.0.0").First(&v2).Error; err != nil {
+	// 	return err
+	// }
 
-	features := []model.Feature{
-		{FeatureName: "remote-control", Enabled: true},
-		{FeatureName: "energy-monitoring", Enabled: true},
-		{FeatureName: "alert-system", Enabled: false},
-	}
+	// features := []model.Feature{
+	// 	{FeatureName: "remote-control", Enabled: true},
+	// 	{FeatureName: "energy-monitoring", Enabled: true},
+	// 	{FeatureName: "alert-system", Enabled: false},
+	// }
 
-	for _, f := range features {
-		if err := db.FirstOrCreate(
-			&model.Feature{},
-			model.Feature{FeatureName: f.FeatureName},
-			&f,
-		).Error; err != nil {
-			return err
-		}
-	}
+	// for _, f := range features {
+	// 	if err := db.FirstOrCreate(
+	// 		&model.Feature{},
+	// 		model.Feature{FeatureName: f.FeatureName},
+	// 		&f,
+	// 	).Error; err != nil {
+	// 		return err
+	// 	}
+	// }
 
-	// Associate features with version 2.0.0
-	var existingFeatures []model.Feature
-	if err := db.Where("feature_name IN ?", []string{"remote-control", "energy-monitoring", "alert-system"}).Find(&existingFeatures).Error; err != nil {
-		return err
-	}
+	// // Associate features with version 2.0.0
+	// var existingFeatures []model.Feature
+	// if err := db.Where("feature_name IN ?", []string{"remote-control", "energy-monitoring", "alert-system"}).Find(&existingFeatures).Error; err != nil {
+	// 	return err
+	// }
 
-	if err := db.Model(&v2).Association("Features").Append(existingFeatures); err != nil {
-		return err
-	}
+	// if err := db.Model(&v2).Association("Features").Append(existingFeatures); err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
