@@ -31,10 +31,6 @@ func (h *LocationHandler) ListLocations(c *gin.Context) {
 		c.Request.Context(),
 	)
 	if err != nil {
-		logger.GetLogger().Error("Failed to list locations",
-			zap.Error(err),
-			zap.String("ip", c.ClientIP()),
-		)
 		c.JSON(
 			http.StatusInternalServerError,
 			gin.H{
@@ -44,9 +40,6 @@ func (h *LocationHandler) ListLocations(c *gin.Context) {
 		return
 	}
 
-	logger.GetLogger().Debug("Locations listed successfully",
-		zap.Int("count", len(locations)),
-	)
 	c.JSON(
 		http.StatusOK,
 		gin.H{
@@ -83,7 +76,10 @@ func (h *LocationHandler) GetLocation(c *gin.Context) {
 func (h *LocationHandler) SearchLocations(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter is required"})
+		c.JSON(
+			http.StatusOK,
+			[]string{},
+		)
 		return
 	}
 

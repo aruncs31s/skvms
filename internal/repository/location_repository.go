@@ -111,7 +111,10 @@ func (r *locationRepository) Search(
 ) ([]model.Location, error) {
 	var locations []model.Location
 	if err := r.db.WithContext(ctx).
-		Where("name LIKE ? OR location_code LIKE ?", "%"+query+"%", "%"+query+"%").
+		Where(
+			"name LIKE ? OR code LIKE ?",
+			"%"+query+"%", "%"+query+"%",
+		).
 		Find(&locations).Error; err != nil {
 		return nil, err
 	}

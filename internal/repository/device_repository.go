@@ -484,7 +484,7 @@ func (r *deviceRepository) GetUsersDevicesByHardwareType(
 		"device_address.city",
 		"ds.name  as current_state",
 	}).
-		Joins("JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_details details ON details.device_id = d.id").
 		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
@@ -605,12 +605,13 @@ func (r *deviceRepository) GetDevicesByHardwareTypeAndUserID(
 		"details.ip_address",
 		"details.mac_address",
 		"v.name  as firmware_version",
-		"device_address.address",
-		"device_address.city",
+		"l.name  as address",
+		"l.city  as city",
 		"ds.name  as current_state",
 	}).
-		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_details details ON details.device_id = d.id").
+		Joins("LEFT JOIN device_assignment da ON da.device_id = d.id").
+		Joins("LEFT JOIN locations l ON l.id = da.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id").

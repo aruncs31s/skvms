@@ -41,7 +41,7 @@ type LocationReader interface {
 	Search(
 		ctx context.Context,
 		query string,
-	) ([]dto.LocationResponse, error)
+	) ([]dto.GenericDropdown, error)
 	GetByCode(
 		ctx context.Context,
 		code string,
@@ -102,11 +102,13 @@ func (s *locationService) List(ctx context.Context) ([]dto.LocationResponse, err
 	var responses []dto.LocationResponse
 	for _, loc := range locations {
 		responses = append(responses, dto.LocationResponse{
-			ID:                    loc.ID,
-			Code:                  loc.Code,
-			Name:                  loc.Name,
-			City:                  loc.City,
-			State:                 loc.State,
+			ID:          loc.ID,
+			Code:        loc.Code,
+			Name:        loc.Name,
+			Description: loc.Description,
+			City:        loc.City,
+			State:       loc.State,
+
 			PinCode:               loc.PinCode,
 			ConnectedDevicesCount: dc[loc.ID],
 			UserCount:             uc[loc.ID],
@@ -136,17 +138,16 @@ func (s *locationService) GetByID(
 	}, nil
 }
 
-func (s *locationService) Search(ctx context.Context, query string) ([]dto.LocationResponse, error) {
+func (s *locationService) Search(ctx context.Context, query string) ([]dto.GenericDropdown, error) {
 	locations, err := s.repo.Search(ctx, query)
 	if err != nil {
 		return nil, err
 	}
-	var responses []dto.LocationResponse
+	var responses []dto.GenericDropdown
 	for _, loc := range locations {
-		responses = append(responses, dto.LocationResponse{
+		responses = append(responses, dto.GenericDropdown{
 			ID:   loc.ID,
-			Code: loc.Code,
-			Name: loc.Name,
+			Name: loc.Name + " - (" + loc.Code + ")",
 		})
 	}
 	return responses, nil
@@ -168,10 +169,18 @@ func (s *locationService) Create(
 	ctx context.Context,
 	location dto.CreateLocationRequest,
 ) error {
-	return s.repo.Create(ctx, &model.Location{
-		Code: location.Code,
-		Name: location.Name,
+	err := s.repo.Create(ctx, &model.Location{
+		Code:        location.Code,
+		Name:        location.Name,
+		Description: location.Description,
+		State:       location.State,
+		City:        location.City,
+		PinCode:     location.PinCode,
 	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *locationService) Update(

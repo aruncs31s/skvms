@@ -16,6 +16,5 @@ type CreateSolarDeviceDTO struct {
 	Name                       string `json:"name" binding:"required"`
 	DeviceTypeID               uint   `json:"device_type_id" binding:"required"`
 	ConnectedMicroControllerID *uint  `json:"connected_microcontroller_id,omitempty"`
-	Address                    string `json:"address" binding:"required"`
-	City                       string `json:"city" binding:"required"`
+	LocationID                 uint   `json:"location_id"`
 }

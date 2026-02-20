@@ -18,7 +18,10 @@ type UserRepository interface {
 }
 type UserReader interface {
 	GetByID(ctx context.Context, id uint) (*model.User, error)
-	CheckIfExistsByUserID(ctx context.Context, id uint) (bool, error)
+	CheckIfExistsByUserID(
+		ctx context.Context,
+		id uint,
+	) (bool, error)
 }
 type userRepository struct {
 	db *gorm.DB
