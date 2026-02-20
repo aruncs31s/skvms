@@ -83,7 +83,10 @@ func (h *LocationHandler) GetLocation(c *gin.Context) {
 func (h *LocationHandler) SearchLocations(c *gin.Context) {
 	query := c.Query("q")
 	if query == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "query parameter is required"})
+		c.JSON(
+			http.StatusOK,
+			[]string{},
+		)
 		return
 	}
 
