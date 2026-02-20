@@ -256,6 +256,9 @@ func (r *solarRepository) GetAllMySolarDevices(
 		ctx, model.HardwareTypeSolar,
 		userID,
 	)
+	if err != nil || devices == nil {
+		return &[]dto.SolarDeviceView{}, err
+	}
 
 	// Check if it has any connected devices ?
 

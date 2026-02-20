@@ -9,6 +9,7 @@ import (
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
 	"go.uber.org/zap"
+	"gorm.io/gorm"
 )
 
 var ErrUserNotFound = errors.New("no user found")
@@ -28,11 +29,13 @@ type SolarService interface {
 	) (*[]dto.SolarDeviceView, error)
 }
 type solarService struct {
-	solarRepo       repository.SolarRepository
-	userRepo        repository.UserReader
-	deviceRepo      repository.DeviceRepository
-	deviceTypeRepo  repository.DeviceTypesRepository
-	deviceStateRepo repository.DeviceStateRepository
+	solarRepo             repository.SolarRepository
+	userRepo              repository.UserReader
+	deviceRepo            repository.DeviceRepository
+	deviceAssignementRepo repository.DeviceAssignmentRepository
+	deviceTypeRepo        repository.DeviceTypesRepository
+	deviceStateRepo       repository.DeviceStateRepository
+	locationRepo          repository.LocationReader
 }
 
 func NewSolarService(
@@ -41,6 +44,7 @@ func NewSolarService(
 	deviceRepo repository.DeviceRepository,
 	deviceStateRepo repository.DeviceStateRepository,
 	deviceTypeRepo repository.DeviceTypesRepository,
+	locationRepo repository.LocationReader,
 ) SolarService {
 	return &solarService{
 		solarRepo:       solarRepo,
@@ -48,6 +52,7 @@ func NewSolarService(
 		deviceRepo:      deviceRepo,
 		deviceStateRepo: deviceStateRepo,
 		deviceTypeRepo:  deviceTypeRepo,
+		locationRepo:    locationRepo,
 	}
 }
 func (s *solarService) GetAllSolarDevices(
@@ -76,31 +81,61 @@ func (s *solarService) mapDeviceToDeviceView(
 		FirmwareVersion: d.Version.Name,
 	}
 }
+
 func (s *solarService) CreateASolarDevice(
 	ctx context.Context,
 	req dto.CreateSolarDeviceDTO,
 	createdBy uint,
-
 ) (dto.DeviceView, error) {
+	tx := s.deviceStateRepo.BeginTx()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
-	exists, err := s.userRepo.CheckIfExistsByUserID(ctx, createdBy)
-
-	if err != nil {
-		return dto.DeviceView{}, ErrUserNotFound
+	var userID uint
+	logger.GetLogger().Info("Creating solar device",
+		zap.String("name", req.Name),
+		zap.Uint("device_type_id", req.DeviceTypeID),
+		zap.Uint("location_id", req.LocationID),
+		zap.Uint("created_by", createdBy),
+	)
+	if err := tx.Table("users").Select("id").Where("id = ?", createdBy).Scan(&userID).Error; err != nil || userID == 0 {
+		tx.Rollback()
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.DeviceView{}, ErrUserNotFound
+		}
+		return dto.DeviceView{}, err
 	}
-	if !exists {
-		return dto.DeviceView{}, ErrUserNotFound
-	}
+	logger.GetLogger().Info("User validated for creating solar device",
+		zap.Uint("user_id", userID),
+	)
 
 	deviceType, err := s.deviceTypeRepo.GetDeviceByID(
 		ctx,
 		req.DeviceTypeID,
 	)
+
+	logger.GetLogger().Info("Device type fetched for solar device creation",
+		zap.Uint("device_type_id", req.DeviceTypeID),
+		zap.String("device_type_name", deviceType.Name),
+	)
 	if err != nil {
+		logger.GetLogger().Error("Failed to fetch device type for solar device creation",
+			zap.Error(err),
+			zap.Uint("device_type_id", req.DeviceTypeID),
+		)
+		tx.Rollback()
 		return dto.DeviceView{}, err
 	}
 	hwType := deviceType.HardwareType
 	if model.HardwareType(hwType) != model.HardwareTypeSolar {
+		logger.GetLogger().Error("Invalid device type for solar device creation",
+			zap.Uint("device_type_id", req.DeviceTypeID),
+			zap.String("device_type_name", deviceType.Name),
+		)
+		tx.Rollback()
 		return dto.DeviceView{}, errors.New("invalid device type for solar device")
 	}
 
@@ -109,36 +144,76 @@ func (s *solarService) CreateASolarDevice(
 		DeviceTypeID: req.DeviceTypeID,
 		CreatedBy:    createdBy,
 	}
-	details := model.DeviceDetails{} // Empty details for solar devices
-
-	// DeviceAssignment is now just LocationID and DeviceID
-	var assignment *model.DeviceAssignment = nil
 
 	// Get Initial Device State ID
 	initialStateID, err := s.deviceStateRepo.GetInitialDeviceStateID(
 		ctx,
 	)
 
-	if err != nil {
-		logger.GetLogger().Error("Failed to get initial device state", zap.Error(err))
+	device.CurrentState = initialStateID
+
+	if err := tx.Create(&device).Error; err != nil {
+		logger.GetLogger().Error("Failed to create solar device",
+			zap.Error(err),
+			zap.String("name", req.Name),
+			zap.Uint("device_type_id", req.DeviceTypeID),
+			zap.Uint("created_by", createdBy),
+		)
+		tx.Rollback()
 		return dto.DeviceView{}, err
 	}
 
-	device.CurrentState = initialStateID
+	// DeviceAssignment is now just LocationID and DeviceID
+	var location *model.Location
 
-	createdDevice, err := s.solarRepo.CreateASolarDevice(
-		ctx,
-		device,
-		req.ConnectedMicroControllerID,
-		&details,
-		assignment,
-	)
-	if err != nil {
+	if req.LocationID != 0 {
+		var err error
+		location, err = s.locationRepo.GetByID(ctx, req.LocationID)
+		if err != nil {
+			logger.GetLogger().Error("Failed to fetch location for solar device assignment",
+				zap.Error(err),
+				zap.Uint("location_id", req.LocationID),
+			)
+			tx.Rollback()
+			return dto.DeviceView{}, errors.New("invalid location ID")
+		}
+	}
+	if location != nil {
+		assignment := &model.DeviceAssignment{
+			LocationID: location.ID,
+			DeviceID:   device.ID,
+		}
+		if err := tx.Create(assignment).Error; err != nil {
+			logger.GetLogger().Error("Failed to create device assignment for solar device",
+				zap.Error(err),
+				zap.Uint("device_id", device.ID),
+				zap.Uint("location_id", location.ID),
+			)
+			tx.Rollback()
+			return dto.DeviceView{}, err
+		}
+	}
+
+	if req.ConnectedMicroControllerID != nil && *req.ConnectedMicroControllerID != 0 {
+		if cd, _ := s.deviceRepo.GetDevice(ctx, *req.ConnectedMicroControllerID); cd != nil && cd.ID != 0 {
+			_ = s.deviceRepo.AddConnectedDevice(
+				ctx,
+				device.ID,
+				cd.ID,
+			)
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		logger.GetLogger().Error("Failed to commit transaction for solar device creation",
+			zap.Error(err),
+			zap.Uint("device_id", device.ID),
+		)
 		return dto.DeviceView{}, err
 	}
 
 	return s.mapDeviceToDeviceView(
-		*createdDevice,
+		*device,
 		deviceType,
 	), nil
 }
