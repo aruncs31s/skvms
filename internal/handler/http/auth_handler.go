@@ -19,15 +19,8 @@ func NewAuthHandler(authService service.AuthService, auditService service.AuditS
 	return &AuthHandler{authService: authService, auditService: auditService}
 }
 
-// TODO:  move to dto package
-type loginRequest struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
 // Update the audit things
 func (h *AuthHandler) Register(c *gin.Context) {
-
 	var req dto.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -91,32 +84,23 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var req loginRequest
+	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.GetLogger().Warn("Invalid login request",
-			zap.String("ip", c.ClientIP()),
-			zap.Error(err),
-		)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		c.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "invalid request",
+			})
 		return
 	}
 
 	token, user, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
-		logger.GetLogger().Error("Login failed",
-			zap.String("username", req.Username),
-			zap.String("ip", c.ClientIP()),
-			zap.Error(err),
-		)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
 
 	if user == nil || token == "" {
-		logger.GetLogger().Warn("Invalid credentials attempt",
-			zap.String("username", req.Username),
-			zap.String("ip", c.ClientIP()),
-		)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}

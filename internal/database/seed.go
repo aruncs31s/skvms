@@ -24,21 +24,21 @@ func Seed(db *gorm.DB) error {
 	if err := seedAdminUser(db); err != nil {
 		return err
 	}
-	if err := seedVersions(db); err != nil {
-		return err
-	}
-	if err := seedDevices(db); err != nil {
-		return err
-	}
-	if err := seedReadings(db); err != nil {
-		return err
-	}
-	if err := seedDeviceStateHistory(db); err != nil {
-		return err
-	}
-	if err := seedAuditLogs(db); err != nil {
-		return err
-	}
+	// if err := seedVersions(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedDevices(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedReadings(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedDeviceStateHistory(db); err != nil {
+	// 	return err
+	// }
+	// if err := seedAuditLogs(db); err != nil {
+	// 	return err
+	// }
 	return nil
 }
 
@@ -68,7 +68,7 @@ func seedDeviceTypes(db *gorm.DB) error {
 		{
 			Name:         "ESP8266 (NODEMCU) ",
 			HardwareType: model.HardwareTypeMicroController,
-			CreatedBy:    1, //ADMIN
+			CreatedBy:    1, // ADMIN
 		},
 		{
 			Name:         "ESP32 (NODEMCU-32)",
