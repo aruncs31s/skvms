@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{.Title}}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      color: #333;
+      margin: 20px;
+    }
+    h1 {
+      font-size: 18px;
+      color: #1a3a5c;
+      border-bottom: 2px solid #1a3a5c;
+      padding-bottom: 6px;
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    thead tr {
+      background-color: #1a3a5c;
+      color: #fff;
+    }
+    th, td {
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #ccc;
+    }
+    tbody tr:nth-child(even) {
+      background-color: #f2f6fc;
+    }
+    .meta {
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <h1>{{.Title}}</h1>
+  <div class="meta">Generated at: {{.GeneratedAt}}</div>
+  <table>
+    <thead>
+      <tr>
+        {{range .Headers}}<th>{{.}}</th>{{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
+      <tr>
+        {{range .}}<td>{{.}}</td>{{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</body>
+</html>

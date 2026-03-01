@@ -22,6 +22,7 @@ type Router struct {
 	adminHandler       *httpHandler.AdminHandler
 	codegenHandler     *httpHandler.CodeGenHandler
 	locationHandler    *httpHandler.LocationHandler
+	exportHandler      *httpHandler.ExportHandler
 	auditService       service.AuditService
 	deviceAuthService  service.DeviceAuthService
 	jwtSecret          string
@@ -41,6 +42,7 @@ func NewRouter(
 	adminHandler *httpHandler.AdminHandler,
 	codegenHandler *httpHandler.CodeGenHandler,
 	locationHandler *httpHandler.LocationHandler,
+	exportHandler *httpHandler.ExportHandler,
 	auditService service.AuditService,
 	deviceAuthService service.DeviceAuthService,
 	jwtSecret string,
@@ -58,6 +60,7 @@ func NewRouter(
 		adminHandler:       adminHandler,
 		codegenHandler:     codegenHandler,
 		locationHandler:    locationHandler,
+		exportHandler:      exportHandler,
 		auditService:       auditService,
 		deviceAuthService:  deviceAuthService,
 		jwtSecret:          jwtSecret,
@@ -128,6 +131,9 @@ func (r *Router) setupAPIRoutes(router *gin.Engine) {
 
 		// Codegen routes (ESP32 firmware generation)
 		r.setupCodegenRoutes(api)
+
+		// Export routes (PDF, XLSX, CSV, XML)
+		r.setupExportRoutes(api)
 
 		// Location routes
 		r.setupLocationRoutes(api, auditMiddleware)
@@ -318,5 +324,22 @@ func (r *Router) setupLocationRoutes(api *gin.RouterGroup, auditMiddleware *midd
 
 		locationAPI.GET("/:id/readings/seven", r.locationHandler.GetSevenDaysReadings)
 
+	}
+}
+
+// setupExportRoutes configures data export routes (PDF, XLSX, CSV, XML).
+func (r *Router) setupExportRoutes(api *gin.RouterGroup) {
+	exp := api.Group("/export")
+	{
+		// List available export formats
+		exp.GET("/formats", r.exportHandler.ListFormats)
+
+		// Export readings for a device
+		// Query params: format, device_id, start_date, end_date, template
+		exp.GET("/readings", middleware.JWTAuth(r.jwtSecret), r.exportHandler.ExportReadings)
+
+		// Export all devices
+		// Query params: format, template
+		exp.GET("/devices", middleware.JWTAuth(r.jwtSecret), r.exportHandler.ExportDevices)
 	}
 }

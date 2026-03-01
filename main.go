@@ -7,6 +7,7 @@ import (
 	"github.com/aruncs31s/skvms/internal/codegen"
 	"github.com/aruncs31s/skvms/internal/config"
 	"github.com/aruncs31s/skvms/internal/database"
+	exportpkg "github.com/aruncs31s/skvms/internal/export"
 	httpHandler "github.com/aruncs31s/skvms/internal/handler/http"
 	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/repository"
@@ -93,6 +94,10 @@ func main() {
 	codegenService := codegen.NewService("")
 	codegenHandler := httpHandler.NewCodeGenHandler(codegenService)
 
+	// Initialize export service and handler
+	exportService := exportpkg.NewService("templates/export")
+	exportHandler := httpHandler.NewExportHandler(exportService, readingService, deviceService)
+
 	// Setup router with all routes
 	appRouter := router.NewRouter(
 		authHandler,
@@ -107,6 +112,7 @@ func main() {
 		adminHandler,
 		codegenHandler,
 		locationHandler,
+		exportHandler,
 		auditService,
 		deviceAuthService,
 		cfg.JWTSecret,
