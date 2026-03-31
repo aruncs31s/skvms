@@ -27,9 +27,9 @@ func Seed(db *gorm.DB) error {
 	if err := seedVersions(db); err != nil {
 		return err
 	}
-	// if err := seedDevices(db); err != nil {
-	// 	return err
-	// }
+	if err := seedDevices(db); err != nil {
+		return err
+	}
 	// if err := seedReadings(db); err != nil {
 	// 	return err
 	// }

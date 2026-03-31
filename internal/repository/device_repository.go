@@ -11,15 +11,24 @@ import (
 
 type DeviceRepository interface {
 	ListDevices(
-		ctx context.Context,
+		context.Context,
+		int,
+		int,
+		bool,
 	) (
 		[]model.DeviceView,
+		int64,
 		error,
 	)
+	ListRecentDevices(
+		ctx context.Context,
+		limit,
+		offset int,
+	) ([]model.DeviceView, int64, error)
 	ListDevicesByUser(
 		ctx context.Context,
 		userID uint,
-	) ([]dto.DeviceView, error)
+	) ([]dto.DeviceView, int64, error)
 	GetDeviceForUpdate(
 		ctx context.Context,
 		tx *gorm.DB,
@@ -168,13 +177,27 @@ func (r *deviceRepository) mapDeviceToDeviceView(d model.Device) dto.DeviceView 
 	}
 }
 
+func (r *deviceRepository) ListRecentDevices(ctx context.Context, limit, offset int) ([]model.DeviceView,int64, error) {
+	return r.ListDevices(
+		ctx,
+		limit,
+		offset,
+		true,
+	)
+}
+
 func (r *deviceRepository) ListDevices(
 	ctx context.Context,
+	limit,
+	offset int,
+	orderByCreateTime bool,
 ) (
 	[]model.DeviceView,
+	int64,
 	error,
 ) {
 	var devices []model.DeviceView
+	var totalCount int64
 
 	query := r.db.
 		Table("devices as d")
@@ -186,24 +209,31 @@ func (r *deviceRepository) ListDevices(
 		"details.ip_address",
 		"details.mac_address",
 		"v.name  as firmware_version",
-		"device_address.address",
-		"device_address.city",
+		"locations.name as address",
+		"locations.city as city",
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		// Joins("LEFT JOIN device_address ON device_address.device_id = d.id").
+		Joins("LEFT JOIN device_assignments ON device_assignments.device_id = d.id").
+		Joins("LEFT JOIN locations ON locations.id = device_assignments.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id")
-
+	if orderByCreateTime {
+		query.Order(
+			"d.created_at DESC",
+		)
+	}
 	err := query.Scan(&devices).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return devices, nil
+	err = r.db.WithContext(ctx).Model(&model.Device{}).Count(&totalCount).Error
+	return devices, totalCount, nil
 }
 
-func (r *deviceRepository) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
+func (r *deviceRepository) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, int64, error) {
 	var devices []model.Device
 	err := r.db.WithContext(ctx).
 		Where("created_by = ?", userID).
@@ -214,13 +244,15 @@ func (r *deviceRepository) ListDevicesByUser(ctx context.Context, userID uint) (
 		Preload("DeviceState").
 		Find(&devices).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var dtoDevices []dto.DeviceView
 	for _, d := range devices {
 		dtoDevices = append(dtoDevices, r.mapDeviceToDeviceView(d))
 	}
-	return dtoDevices, nil
+	var totalCount int64
+	err = r.db.WithContext(ctx).Model(&model.Device{}).Where("created_by = ?", userID).Count(&totalCount).Error
+	return dtoDevices, totalCount, nil
 }
 
 func (r *deviceRepository) GetDeviceForUpdate(
@@ -448,8 +480,8 @@ func (r *deviceRepository) GetDevicesByHardwareType(
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
-		Joins("LEFT JOIN locations ON locations.id = device_assignment.location_id").
+		Joins("LEFT JOIN device_assignments ON device_assignments.device_id = d.id").
+		Joins("LEFT JOIN locations ON locations.id = device_assignments.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id")
@@ -485,7 +517,7 @@ func (r *deviceRepository) GetUsersDevicesByHardwareType(
 		"ds.name  as current_state",
 	}).
 		Joins("LEFT JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
+		Joins("LEFT JOIN device_assignments ON device_assignments.device_id = d.id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id")
@@ -610,7 +642,7 @@ func (r *deviceRepository) GetDevicesByHardwareTypeAndUserID(
 		"ds.name  as current_state",
 	}).
 		Joins("LEFT JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_assignment da ON da.device_id = d.id").
+		Joins("LEFT JOIN device_assignments da ON da.device_id = d.id").
 		Joins("LEFT JOIN locations l ON l.id = da.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
@@ -718,8 +750,8 @@ func (r *deviceRepository) GetDevicesByState(
 		"ds.name  as current_state",
 	}).
 		Joins("JOIN device_details details ON details.device_id = d.id").
-		Joins("LEFT JOIN device_assignment ON device_assignment.device_id = d.id").
-		Joins("LEFT JOIN locations ON locations.id = device_assignment.location_id").
+		Joins("LEFT JOIN device_assignments ON device_assignments.device_id = d.id").
+		Joins("LEFT JOIN locations ON locations.id = device_assignments.location_id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Joins("JOIN device_states ds ON d.current_state  = ds.id").
 		Joins("JOIN versions v ON v.id = d.version_id").

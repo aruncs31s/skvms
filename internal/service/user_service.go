@@ -135,7 +135,7 @@ func (s *userService) GetProfile(ctx context.Context, userID uint) (*dto.UserPro
 		return nil, err
 	}
 
-	devices, err := s.deviceService.ListDevicesByUser(ctx, userID)
+	devices, _, err := s.deviceService.ListDevicesByUser(ctx, userID)
 	if err != nil {
 		return nil, err
 	}

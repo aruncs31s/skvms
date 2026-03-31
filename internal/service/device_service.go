@@ -15,11 +15,17 @@ import (
 type DeviceService interface {
 	ListDevices(
 		ctx context.Context,
-	) ([]dto.DeviceView, error)
+		limit, offset int,
+	) ([]dto.DeviceView, int64, error)
+	ListRecentDevices(
+		ctx context.Context,
+		limit int,
+		offset int,
+	) ([]dto.DeviceView, int64, error)
 	ListDevicesByUser(
 		ctx context.Context,
 		userID uint,
-	) ([]dto.DeviceView, error)
+	) ([]dto.DeviceView, int64, error)
 	GetDevice(
 		ctx context.Context,
 		id uint,
@@ -131,17 +137,37 @@ func (s *deviceService) mapDeviceToDeviceView(d model.Device) dto.DeviceView {
 	}
 }
 
-func (s *deviceService) ListDevices(ctx context.Context) ([]dto.DeviceView, error) {
-	devices, err := s.repo.ListDevices(ctx)
+func (s *deviceService) ListDevices(
+	ctx context.Context,
+	limit int,
+	offset int,
+) ([]dto.DeviceView, int64, error) {
+	if limit == 0 {
+		limit = 1000
+	}
+	devices, count, err := s.repo.ListDevices(ctx, limit, offset, false)
 	if err != nil || len(devices) == 0 {
-		return []dto.DeviceView{}, err
+		return []dto.DeviceView{}, 0, err
 	}
 	var dtos []dto.DeviceView
 	for _, device := range devices {
 		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
 	}
-	return dtos, nil
+	return dtos, count, nil
 }
+
+func (s *deviceService) ListRecentDevices(ctx context.Context, limit, offset int) ([]dto.DeviceView, int64, error) {
+	devices, count, err := s.repo.ListRecentDevices(ctx, limit, offset)
+	if err != nil || len(devices) == 0 {
+		return []dto.DeviceView{}, 0, err
+	}
+	var dtos []dto.DeviceView
+	for _, device := range devices {
+		dtos = append(dtos, s.mapToDeviceModelViewToView(device))
+	}
+	return dtos, count, nil
+}
+
 func (s *deviceService) mapToDeviceModelViewToView(d model.DeviceView) dto.DeviceView {
 	return dto.DeviceView{
 		ID:              d.ID,
@@ -156,12 +182,12 @@ func (s *deviceService) mapToDeviceModelViewToView(d model.DeviceView) dto.Devic
 	}
 }
 
-func (s *deviceService) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, error) {
-	devices, err := s.repo.ListDevicesByUser(ctx, userID)
+func (s *deviceService) ListDevicesByUser(ctx context.Context, userID uint) ([]dto.DeviceView, int64, error) {
+	devices, count, err := s.repo.ListDevicesByUser(ctx, userID)
 	if err != nil || len(devices) == 0 {
-		return []dto.DeviceView{}, err
+		return []dto.DeviceView{}, 0, err
 	}
-	return devices, nil
+	return devices, count, nil
 }
 
 func (s *deviceService) GetDevice(ctx context.Context, id uint) (*dto.DeviceView, error) {

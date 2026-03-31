@@ -128,8 +128,8 @@ func (r *locationRepository) GetConnectedDevicesCount(
 ) (int, error) {
 	var count int64
 	err := r.db.WithContext(ctx).
-		Table("device_assignment").
-		Joins("JOIN devices d On device_assignment.device_id = d.id").
+		Table("device_assignments").
+		Joins("JOIN devices d On device_assignments.device_id = d.id").
 		Joins("JOIN device_types dt ON dt.id = d.device_type").
 		Where("dt.hardware_type IN ?", hardwareTypes).
 		Where("location_id = ?", locationID).

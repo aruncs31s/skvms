@@ -176,41 +176,43 @@ func (r *Router) setupAuthRoutes(api *gin.RouterGroup) {
 
 // setupDeviceRoutes configures device related routes
 func (r *Router) setupDeviceRoutes(api *gin.RouterGroup, auditMiddleware *middleware.AuditMiddleware) {
-	api.GET("/devices", r.deviceHandler.ListDevices)
-	api.GET("/devices/:id", r.deviceHandler.GetDevice)
-	api.POST("/devices", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
-	api.PUT("/devices/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
+	device := api.Group("devices")
+	device.GET("", r.deviceHandler.ListDevices)
+	device.GET("/recent", r.deviceHandler.ListRecentDevices)
+	device.GET("/:id", r.deviceHandler.GetDevice)
+	device.POST("", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateDevice)
+	device.PUT("/:id", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_update"), r.deviceHandler.UpdateDevice)
 
 	{
 		// Get all types.
-		api.GET("/devices/types", r.deviceTypesHandler.ListDeviceTypes)
+		device.GET("/types", r.deviceTypesHandler.ListDeviceTypes)
 
-		api.POST("/devices/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
+		device.POST("/types", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.CreateDeviceType)
 
-		api.GET("/devices/:id/type", r.deviceTypesHandler.GetDeviceTypeByDeviceID)
+		device.GET("/:id/type", r.deviceTypesHandler.GetDeviceTypeByDeviceID)
 
-		api.GET("/devices/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
-		api.GET("/devices/types/sensors", r.deviceTypesHandler.GetSensorType)
+		device.GET("/types/hardware", middleware.JWTAuth(r.jwtSecret), r.deviceTypesHandler.GetHardwareType)
+		device.GET("/types/sensors", r.deviceTypesHandler.GetSensorType)
 	}
 	{
-		api.GET("/devices/:id/connected", r.deviceHandler.GetConnectedDevices)
-		api.GET("/devices/:id/connected/:cid/readings", r.readingHandler.GetReadingsOfConnectedDevice)
+		device.GET("/:id/connected", r.deviceHandler.GetConnectedDevices)
+		device.GET("/:id/connected/:cid/readings", r.readingHandler.GetReadingsOfConnectedDevice)
 
-		api.POST("/devices/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDevice)
-		api.DELETE("/devices/:id/connected/:cid", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.RemoveConnectedDevice)
+		device.POST("/:id/connected", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDevice)
+		device.DELETE("/:id/connected/:cid", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.RemoveConnectedDevice)
 
-		api.POST("/devices/:id/connected/new", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDeviceWithDetails)
+		device.POST("/:id/connected/new", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.CreateConnectedDeviceWithDetails)
 	}
 	{
-		api.GET("/devices/:id/readings", r.readingHandler.ListByDevice)
-		api.GET("/devices/:id/readings/range", r.readingHandler.ListByDateRange)
-		api.GET("/devices/:id/readings/progressive", r.readingHandler.ListByDeviceProgressive)
-		api.GET("/devices/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
+		device.GET("/:id/readings", r.readingHandler.ListByDevice)
+		device.GET("/:id/readings/range", r.readingHandler.ListByDateRange)
+		device.GET("/:id/readings/progressive", r.readingHandler.ListByDeviceProgressive)
+		device.GET("/:id/readings/interval", r.readingHandler.ListByDeviceWithInterval)
 	}
 
-	api.POST("/devices/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
+	device.POST("/:id/control", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.ControlDevice)
 
-	api.PUT("/devices/:id/full", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_full_update"), r.deviceHandler.FullUpdateDevice)
+	device.PUT("/:id/full", middleware.JWTAuth(r.jwtSecret), auditMiddleware.Audit("device_full_update"), r.deviceHandler.FullUpdateDevice)
 
 	api.DELETE("/devices/:id", middleware.JWTAuth(r.jwtSecret), r.deviceHandler.DeleteDevice)
 

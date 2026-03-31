@@ -330,7 +330,7 @@ func (r *readingRepository) SevenDaysReadingsByLocation(
 			AVG(r.voltage) as voltage,
 			AVG(r.current) as current
 		FROM readings r
-		JOIN device_assignment da 
+		JOIN device_assignments da 
 		ON da.device_id = r.device_id
 		AND da.location_id = ?
 		AND r.created_at BETWEEN da.assigned_at

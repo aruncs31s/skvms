@@ -86,7 +86,7 @@ func (h *ExportHandler) ExportDevices(c *gin.Context) {
 		return
 	}
 
-	devices, err := h.deviceService.ListDevices(c.Request.Context())
+	devices, _, err := h.deviceService.ListDevices(c.Request.Context(), 0, 0) // Fetch all devices without pagination
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch devices"})
 		return
