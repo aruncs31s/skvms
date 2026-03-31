@@ -66,7 +66,11 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 	// Audit log
 	userID, _ := c.Get("user_id")
 	username, _ := c.Get("username")
-	_ = h.auditService.Log(c.Request.Context(), userID.(uint), username.(string), "user_create",
+	_ = h.auditService.Log(
+		c.Request.Context(),
+		userID.(uint),
+		username.(string),
+		"user_create",
 		"Created user: "+req.Username, c.ClientIP())
 
 	c.JSON(http.StatusCreated, gin.H{"message": "user created successfully"})

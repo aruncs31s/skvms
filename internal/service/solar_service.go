@@ -5,10 +5,8 @@ import (
 	"errors"
 
 	"github.com/aruncs31s/skvms/internal/dto"
-	"github.com/aruncs31s/skvms/internal/logger"
 	"github.com/aruncs31s/skvms/internal/model"
 	"github.com/aruncs31s/skvms/internal/repository"
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -95,12 +93,7 @@ func (s *solarService) CreateASolarDevice(
 	}()
 
 	var userID uint
-	logger.GetLogger().Info("Creating solar device",
-		zap.String("name", req.Name),
-		zap.Uint("device_type_id", req.DeviceTypeID),
-		zap.Uint("location_id", req.LocationID),
-		zap.Uint("created_by", createdBy),
-	)
+
 	if err := tx.Table("users").Select("id").Where("id = ?", createdBy).Scan(&userID).Error; err != nil || userID == 0 {
 		tx.Rollback()
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -108,33 +101,18 @@ func (s *solarService) CreateASolarDevice(
 		}
 		return dto.DeviceView{}, err
 	}
-	logger.GetLogger().Info("User validated for creating solar device",
-		zap.Uint("user_id", userID),
-	)
 
 	deviceType, err := s.deviceTypeRepo.GetDeviceByID(
 		ctx,
 		req.DeviceTypeID,
 	)
 
-	logger.GetLogger().Info("Device type fetched for solar device creation",
-		zap.Uint("device_type_id", req.DeviceTypeID),
-		zap.String("device_type_name", deviceType.Name),
-	)
 	if err != nil {
-		logger.GetLogger().Error("Failed to fetch device type for solar device creation",
-			zap.Error(err),
-			zap.Uint("device_type_id", req.DeviceTypeID),
-		)
 		tx.Rollback()
 		return dto.DeviceView{}, err
 	}
 	hwType := deviceType.HardwareType
 	if model.HardwareType(hwType) != model.HardwareTypeSolar {
-		logger.GetLogger().Error("Invalid device type for solar device creation",
-			zap.Uint("device_type_id", req.DeviceTypeID),
-			zap.String("device_type_name", deviceType.Name),
-		)
 		tx.Rollback()
 		return dto.DeviceView{}, errors.New("invalid device type for solar device")
 	}
@@ -145,7 +123,6 @@ func (s *solarService) CreateASolarDevice(
 		CreatedBy:    createdBy,
 	}
 
-	// Get Initial Device State ID
 	initialStateID, err := s.deviceStateRepo.GetInitialDeviceStateID(
 		ctx,
 	)
@@ -153,12 +130,6 @@ func (s *solarService) CreateASolarDevice(
 	device.CurrentState = initialStateID
 
 	if err := tx.Create(&device).Error; err != nil {
-		logger.GetLogger().Error("Failed to create solar device",
-			zap.Error(err),
-			zap.String("name", req.Name),
-			zap.Uint("device_type_id", req.DeviceTypeID),
-			zap.Uint("created_by", createdBy),
-		)
 		tx.Rollback()
 		return dto.DeviceView{}, err
 	}
@@ -170,10 +141,6 @@ func (s *solarService) CreateASolarDevice(
 		var err error
 		location, err = s.locationRepo.GetByID(ctx, req.LocationID)
 		if err != nil {
-			logger.GetLogger().Error("Failed to fetch location for solar device assignment",
-				zap.Error(err),
-				zap.Uint("location_id", req.LocationID),
-			)
 			tx.Rollback()
 			return dto.DeviceView{}, errors.New("invalid location ID")
 		}
@@ -184,11 +151,6 @@ func (s *solarService) CreateASolarDevice(
 			DeviceID:   device.ID,
 		}
 		if err := tx.Create(assignment).Error; err != nil {
-			logger.GetLogger().Error("Failed to create device assignment for solar device",
-				zap.Error(err),
-				zap.Uint("device_id", device.ID),
-				zap.Uint("location_id", location.ID),
-			)
 			tx.Rollback()
 			return dto.DeviceView{}, err
 		}
@@ -205,10 +167,6 @@ func (s *solarService) CreateASolarDevice(
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		logger.GetLogger().Error("Failed to commit transaction for solar device creation",
-			zap.Error(err),
-			zap.Uint("device_id", device.ID),
-		)
 		return dto.DeviceView{}, err
 	}
 

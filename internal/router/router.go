@@ -170,10 +170,8 @@ func (r *Router) setupCodegenRoutes(api *gin.RouterGroup) {
 // setupAuthRoutes configures authentication related routes
 func (r *Router) setupAuthRoutes(api *gin.RouterGroup) {
 	api.POST("/login", r.authHandler.Login)
-	api.POST(
-		"/register",
-		r.authHandler.Register,
-	)
+	api.POST("/register", r.authHandler.Register)
+	api.POST("/refresh", r.authHandler.Refresh)
 }
 
 // setupDeviceRoutes configures device related routes

@@ -147,14 +147,10 @@ func (s *userService) GetProfile(ctx context.Context, userID uint) (*dto.UserPro
 
 	activity := make([]dto.AuditLogView, len(auditLogs))
 	for i, log := range auditLogs {
-		actionName := "unknown"
-		if name, exists := model.DeviceActionsMap[log.Action]; exists {
-			actionName = name
-		}
 		activity[i] = dto.AuditLogView{
 			ID:        log.ID,
 			Username:  log.Username,
-			Action:    actionName,
+			Action:    log.Action,
 			Details:   log.Details,
 			IPAddress: log.IPAddress,
 			DeviceID:  log.DeviceID,

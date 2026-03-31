@@ -20,6 +20,7 @@ func New(cfg config.Config) (*gorm.DB, error) {
 
 	if err := db.AutoMigrate(
 		&model.User{},
+		&model.Location{},
 		&model.Device{},
 		&model.DeviceDetails{},
 		&model.DeviceAssignment{},

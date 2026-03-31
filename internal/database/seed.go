@@ -496,7 +496,7 @@ func seedAuditLogs(db *gorm.DB) error {
 		{
 			UserID:    1,
 			Username:  "admin",
-			Action:    model.ActionCreate,
+			Action:    "login",
 			Details:   "User logged in",
 			IPAddress: "192.168.1.50",
 			CreatedAt: now.Add(-72 * time.Hour),
@@ -504,7 +504,7 @@ func seedAuditLogs(db *gorm.DB) error {
 		{
 			UserID:    1,
 			Username:  "admin",
-			Action:    model.ActionCreate,
+			Action:    "login",
 			Details:   "User logged in",
 			IPAddress: "192.168.1.50",
 			CreatedAt: now.Add(-48 * time.Hour),
@@ -512,7 +512,7 @@ func seedAuditLogs(db *gorm.DB) error {
 		{
 			UserID:    1,
 			Username:  "admin",
-			Action:    model.ActionCreate,
+			Action:    "login",
 			Details:   "User logged in",
 			IPAddress: "192.168.1.50",
 			CreatedAt: now.Add(-24 * time.Hour),
@@ -520,7 +520,7 @@ func seedAuditLogs(db *gorm.DB) error {
 		{
 			UserID:    1,
 			Username:  "admin",
-			Action:    model.ActionCreate,
+			Action:    "login",
 			Details:   "User logged in",
 			IPAddress: "192.168.1.50",
 			CreatedAt: now.Add(-2 * time.Hour),
@@ -535,15 +535,15 @@ func seedAuditLogs(db *gorm.DB) error {
 
 	// Device action logs
 	actions := []struct {
-		action  model.DeviceAction
+		action  string
 		details string
 		hours   int
 	}{
-		{model.ActionCreate, "Device created", 72},
-		{model.ActionTurnOff, "Device turned off", 48},
-		{model.ActionTurnOn, "Device turned on", 24},
-		{model.ActionConfigure, "Device configured", 12},
-		{model.ActionUpdate, "Device settings updated", 6},
+		{"device_create", "Device created", 72},
+		{"device_turn_off", "Device turned off", 48},
+		{"device_turn_on", "Device turned on", 24},
+		{"device_configure", "Device configured", 12},
+		{"device_update", "Device settings updated", 6},
 	}
 
 	for i, deviceID := range deviceIDs {

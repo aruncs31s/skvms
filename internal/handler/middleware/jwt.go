@@ -32,6 +32,11 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return
 		}
 
+		if tokenType, ok := claims["token_type"].(string); ok && tokenType != "access" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token type"})
+			return
+		}
+
 		// Store claims as a single object
 		c.Set("claims", claims)
 

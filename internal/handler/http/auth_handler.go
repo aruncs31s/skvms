@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/aruncs31s/skvms/internal/dto"
 	"github.com/aruncs31s/skvms/internal/logger"
@@ -29,11 +30,25 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	user, err := h.authService.Register(c.Request.Context(), &req)
 	if err != nil {
-		logger.GetLogger().Error("User registration failed",
-			zap.String("username", req.Username),
-			zap.String("ip", c.ClientIP()),
-			zap.Error(err),
-		)
+		if strings.Contains(err.Error(), "Duplicate") {
+			logger.GetLogger().Error("User registration failed - duplicate username or email",
+				zap.String("username", req.Username),
+				zap.String("ip", c.ClientIP()),
+				zap.Error(err),
+			)
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "username or email already exists",
+				"message": "registration failed",
+				"details": err.Error(),
+			})
+			return
+		} else {
+			logger.GetLogger().Error("User registration failed",
+				zap.String("username", req.Username),
+				zap.String("ip", c.ClientIP()),
+				zap.Error(err),
+			)
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "registration failed"})
 		return
 	}
@@ -43,7 +58,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		zap.String("ip", c.ClientIP()),
 	)
 
-	token, user, err := h.authService.Login(c.Request.Context(), user.Username, req.Password)
+	accessToken, refreshToken, user, err := h.authService.Login(c.Request.Context(), user.Username, req.Password)
 	if err != nil {
 		logger.GetLogger().Error("Login failed",
 			zap.String("username", user.Username),
@@ -53,11 +68,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
-	if user == nil || token == "" {
-		logger.GetLogger().Warn("Invalid credentials attempt",
-			zap.String("username", user.Username),
-			zap.String("ip", c.ClientIP()),
-		)
+	if user == nil || accessToken == "" {
+
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -73,7 +85,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	)
 
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"token":         accessToken,
+		"refresh_token": refreshToken,
 		"user": gin.H{
 			"id":       user.ID,
 			"name":     user.Name,
@@ -94,13 +107,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, user, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
+	accessToken, refreshToken, user, err := h.authService.Login(c.Request.Context(), req.Username, req.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
 
-	if user == nil || token == "" {
+	if user == nil || accessToken == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -116,7 +129,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	)
 
 	c.JSON(http.StatusOK, gin.H{
-		"token": token,
+		"token":         accessToken,
+		"refresh_token": refreshToken,
 		"user": gin.H{
 			"id":       user.ID,
 			"name":     user.Name,
@@ -124,5 +138,24 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			"email":    user.Email,
 			"role":     user.Role,
 		},
+	})
+}
+
+func (h *AuthHandler) Refresh(c *gin.Context) {
+	var req dto.RefreshTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+		return
+	}
+
+	accessToken, refreshToken, err := h.authService.Refresh(c.Request.Context(), req.RefreshToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired refresh token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token":         accessToken,
+		"refresh_token": refreshToken,
 	})
 }
